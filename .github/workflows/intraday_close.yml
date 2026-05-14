@@ -1,0 +1,46 @@
+name: "3:35 PM — Record EOD P&L"
+
+on:
+  schedule:
+    # 3:35 PM IST = 10:05 UTC  (Mon–Fri)
+    - cron: '5 10 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  record-pnl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Record end-of-day P&L
+        run: python live/intraday_close.py
+        env:
+          PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
+
+      - name: Refresh dashboard
+        run: python main.py report
+        env:
+          TZ: 'Asia/Kolkata'
+
+      - name: Commit P&L to repo
+        run: |
+          git config user.name "Trading Bot"
+          git config user.email "trading-bot@github.com"
+          git add data/daily_calls.json reports/ README.md
+          git diff --staged --quiet || git commit -m "💰 EOD P&L — $(date '+%d %b %Y')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

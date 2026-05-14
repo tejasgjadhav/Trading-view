@@ -1,0 +1,46 @@
+name: "9:45 AM — Intraday Signal (ORB + VWAP)"
+
+on:
+  schedule:
+    # 9:45 AM IST = 04:15 UTC  (Mon–Fri, NSE trading days)
+    - cron: '15 4 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  morning-signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Generate 9:45 AM intraday call
+        run: python live/intraday_morning.py
+        env:
+          PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
+
+      - name: Update dashboard report
+        run: python main.py report
+        env:
+          TZ: 'Asia/Kolkata'
+
+      - name: Commit call to repo
+        run: |
+          git config user.name "Trading Bot"
+          git config user.email "trading-bot@github.com"
+          git add data/daily_calls.json reports/ README.md
+          git diff --staged --quiet || git commit -m "📊 Intraday call — $(date '+%d %b %Y %H:%M IST' --date='TZ=\"Asia/Kolkata\" now')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

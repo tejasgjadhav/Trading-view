@@ -3,25 +3,35 @@ Trading Strategy Configuration — NSE India
 Inspired by strategies from world's top traders
 """
 
-# ─── WATCHLIST (NSE India) ────────────────────────────────────────────────────
-# Top Nifty 50 stocks + sector ETFs — suffix .NS = NSE, .BO = BSE
+# ─── WATCHLIST — Full Nifty 50 + Midcap leaders + ETFs ──────────────────────
+# suffix .NS = NSE | covers all major Nifty 50 constituents
 WATCHLIST = [
-    # Large-cap — Nifty heavyweights
-    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
-    "HINDUNILVR.NS", "BAJFINANCE.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "WIPRO.NS",
+    # IT & Tech
+    "TCS.NS", "INFY.NS", "WIPRO.NS", "HCLTECH.NS", "TECHM.NS", "LTIM.NS",
     # Banking & Financials
-    "SBIN.NS", "AXISBANK.NS", "HDFCLIFE.NS",
+    "HDFCBANK.NS", "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS", "AXISBANK.NS",
+    "BAJFINANCE.NS", "BAJAJFINSV.NS", "HDFCLIFE.NS", "SBILIFE.NS", "INDUSINDBK.NS",
+    # Energy & Oil
+    "RELIANCE.NS", "ONGC.NS", "BPCL.NS", "COALINDIA.NS", "POWERGRID.NS", "NTPC.NS",
     # Industrials & Infra
-    "ADANIENT.NS", "ADANIPORTS.NS", "LTIM.NS",
-    # Consumer & Auto
-    "MARUTI.NS", "TITAN.NS", "ASIANPAINT.NS",
-    # ETFs (Nifty + Gold + IT)
+    "LT.NS", "ADANIENT.NS", "ADANIPORTS.NS", "GRASIM.NS", "ULTRACEMCO.NS",
+    # Metals & Materials
+    "JSWSTEEL.NS", "TATASTEEL.NS", "HINDALCO.NS",
+    # Consumer & FMCG
+    "HINDUNILVR.NS", "ITC.NS", "NESTLEIND.NS", "BRITANNIA.NS", "TATACONSUM.NS", "ASIANPAINT.NS",
+    # Auto
+    "MARUTI.NS", "TATAMOTORS.NS", "BAJAJ-AUTO.NS", "HEROMOTOCO.NS", "EICHERMOT.NS",
+    # Pharma & Health
+    "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "DIVISLAB.NS", "APOLLOHOSP.NS",
+    # Others
+    "TITAN.NS", "SHRIRAMFIN.NS",
+    # ETFs
     "NIFTYBEES.NS", "GOLDBEES.NS", "JUNIORBEES.NS",
 ]
 
 # ─── BACKTEST SETTINGS ───────────────────────────────────────────────────────
 BACKTEST_PERIOD_YEARS = 3          # Years of historical data to backtest
-INITIAL_CAPITAL = 1_000_000        # Starting capital in INR (₹10 lakhs)
+INITIAL_CAPITAL = 100_000          # Starting capital in INR (₹1 lakh)
 POSITION_SIZE_PCT = 0.10           # 10% of capital per trade
 MAX_POSITIONS = 8                  # Max concurrent open positions
 COMMISSION_PCT = 0.0003            # 0.03% brokerage (Zerodha flat fee approx)

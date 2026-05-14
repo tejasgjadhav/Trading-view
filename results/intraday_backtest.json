@@ -1,0 +1,583 @@
+{
+  "results": [
+    {
+      "ticker": "RELIANCE.NS",
+      "trades": 6,
+      "win_rate": 66.66666666666666,
+      "return_pct": 0.1,
+      "final_equity": 100098.0
+    },
+    {
+      "ticker": "TCS.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": 0.73,
+      "final_equity": 100731.0
+    },
+    {
+      "ticker": "INFY.NS",
+      "trades": 9,
+      "win_rate": 55.55555555555556,
+      "return_pct": 3.29,
+      "final_equity": 103292.0
+    },
+    {
+      "ticker": "HDFCBANK.NS",
+      "trades": 4,
+      "win_rate": 50.0,
+      "return_pct": 0.08,
+      "final_equity": 100082.0
+    },
+    {
+      "ticker": "SBIN.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": -0.06,
+      "final_equity": 99940.0
+    },
+    {
+      "ticker": "BHARTIARTL.NS",
+      "trades": 10,
+      "win_rate": 20.0,
+      "return_pct": -3.24,
+      "final_equity": 96764.0
+    },
+    {
+      "ticker": "BAJFINANCE.NS",
+      "trades": 12,
+      "win_rate": 75.0,
+      "return_pct": 2.29,
+      "final_equity": 102294.0
+    }
+  ],
+  "best": "INFY.NS",
+  "best_trades": [
+    {
+      "date": "2026-02-12",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100000,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-13",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100000,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-16",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100000,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-17",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100000,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-18",
+      "action": "SELL",
+      "entry": 1360.0,
+      "exit": 1372.0,
+      "exit_reason": "eod",
+      "or_high": 1393.9,
+      "or_low": 1363.4,
+      "stoploss": 1393.9,
+      "target": 1317.65,
+      "pnl_pct": -0.75,
+      "pnl_inr": -754.0,
+      "equity": 99246.0
+    },
+    {
+      "date": "2026-02-19",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-20",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-23",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-24",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-25",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-26",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-02-27",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-02",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-04",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-05",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-06",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-09",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-10",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-11",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-12",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-13",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-16",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-17",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-18",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 99246.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-19",
+      "action": "SELL",
+      "entry": 1239.7,
+      "exit": 1219.5,
+      "exit_reason": "target",
+      "or_high": 1253.5,
+      "or_low": 1239.9,
+      "stoploss": 1253.5,
+      "target": 1219.5,
+      "pnl_pct": 1.26,
+      "pnl_inr": 1246.0,
+      "equity": 100492.0
+    },
+    {
+      "date": "2026-03-20",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100492.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-23",
+      "action": "BUY",
+      "entry": 1248.4,
+      "exit": 1256.8,
+      "exit_reason": "eod",
+      "or_high": 1245.7,
+      "or_low": 1227.9,
+      "stoploss": 1227.9,
+      "target": 1272.4,
+      "pnl_pct": 0.49,
+      "pnl_inr": 493.0,
+      "equity": 100985.0
+    },
+    {
+      "date": "2026-03-24",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-25",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-27",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-03-30",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-01",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-02",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-06",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-07",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-08",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-09",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-10",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-13",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-15",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-16",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-17",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-20",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100985.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-21",
+      "action": "BUY",
+      "entry": 1310.4,
+      "exit": 1320.15,
+      "exit_reason": "target",
+      "or_high": 1307.7,
+      "or_low": 1299.4,
+      "stoploss": 1299.4,
+      "target": 1320.15,
+      "pnl_pct": 0.55,
+      "pnl_inr": 553.0,
+      "equity": 101538.0
+    },
+    {
+      "date": "2026-04-22",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 101538.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-23",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 101538.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-24",
+      "action": "SELL",
+      "entry": 1196.2,
+      "exit": 1165.2,
+      "exit_reason": "target",
+      "or_high": 1223.2,
+      "or_low": 1200.0,
+      "stoploss": 1223.2,
+      "target": 1165.2,
+      "pnl_pct": 2.03,
+      "pnl_inr": 2056.0,
+      "equity": 103594.0
+    },
+    {
+      "date": "2026-04-27",
+      "action": "BUY",
+      "entry": 1178.4,
+      "exit": 1172.9,
+      "exit_reason": "eod",
+      "or_high": 1176.0,
+      "or_low": 1155.7,
+      "stoploss": 1155.7,
+      "target": 1206.45,
+      "pnl_pct": -0.42,
+      "pnl_inr": -437.0,
+      "equity": 103157.0
+    },
+    {
+      "date": "2026-04-28",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103157.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-04-29",
+      "action": "BUY",
+      "entry": 1174.4,
+      "exit": 1175.1,
+      "exit_reason": "target",
+      "or_high": 1164.6,
+      "or_low": 1157.6,
+      "stoploss": 1157.6,
+      "target": 1175.1,
+      "pnl_pct": -0.0,
+      "pnl_inr": -0.0,
+      "equity": 103157.0
+    },
+    {
+      "date": "2026-04-30",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103157.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-04",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103157.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-05",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103157.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-06",
+      "action": "SELL",
+      "entry": 1177.4,
+      "exit": 1170.45,
+      "exit_reason": "target",
+      "or_high": 1191.2,
+      "or_low": 1182.9,
+      "stoploss": 1191.2,
+      "target": 1170.45,
+      "pnl_pct": 0.42,
+      "pnl_inr": 438.0,
+      "equity": 103595.0
+    },
+    {
+      "date": "2026-05-07",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103595.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-08",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103595.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-11",
+      "action": "BUY",
+      "entry": 1179.6,
+      "exit": 1176.0,
+      "exit_reason": "eod",
+      "or_high": 1178.9,
+      "or_low": 1172.2,
+      "stoploss": 1172.2,
+      "target": 1188.95,
+      "pnl_pct": -0.29,
+      "pnl_inr": -303.0,
+      "equity": 103292.0
+    },
+    {
+      "date": "2026-05-12",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103292.0,
+      "reason": "no signal"
+    },
+    {
+      "date": "2026-05-13",
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 103292.0,
+      "reason": "no signal"
+    }
+  ],
+  "capital": 100000
+}
