@@ -402,6 +402,91 @@ def generate_recommendation(force_fresh_backtest: bool = False) -> dict:
     return _no_trade("No data available from any source. Check NSE / yfinance connectivity.")
 
 
+# ── Continuous scan ───────────────────────────────────────────────────────────
+
+def generate_continuous_recommendation() -> dict:
+    """
+    Called every 5 min during market hours (9:15 AM – 3:15 PM IST).
+    Uses the CURRENT bar (latest price) — no fixed time anchor.
+    Publishes a signal the moment ≥3/7 criteria fire.
+    Skips if:
+      - Before 9:45 AM (opening range not yet formed — need ≥6 bars)
+      - Today already has 2 open/closed signals
+      - A stock already has a signal today
+    """
+    now_ist = datetime.now(IST)
+    hour, minute = now_ist.hour, now_ist.minute
+
+    # Guard: need at least 9:45 AM for ORB to be established
+    if hour < 9 or (hour == 9 and minute < 45):
+        return _no_trade(f"Opening range not yet formed — wait until 9:45 AM IST (now {hour:02d}:{minute:02d}).")
+
+    # Guard: market close
+    if hour >= 15 and minute >= 20:
+        return _no_trade("Past force-close time (3:20 PM IST). No new signals.")
+
+    # Guard: max 2 signals per day
+    open_today = _get_open_positions_today_all()
+    if len(open_today) >= 2:
+        tickers = [c["ticker"] for c in open_today]
+        return _no_trade(f"Max 2 signals already issued today: {tickers}. No new signal.")
+
+    avail = _remaining_capital()
+    if avail < 5000:
+        return _no_trade("Less than ₹5,000 available — capital fully deployed.")
+
+    open_tickers = {c["ticker"] for c in open_today}
+
+    print(f"\n{'='*65}")
+    print(f"  CONTINUOUS SCAN — {now_ist.strftime('%d %b %Y  %I:%M %p IST')}")
+    print(f"  Signals today: {len(open_today)}/2  |  Open: {open_tickers or 'none'}")
+    print(f"  Available capital: ₹{avail:,.0f}")
+    print(f"{'='*65}\n")
+
+    def _filtered(tickers):
+        return [t for t in tickers if t not in open_tickers]
+
+    # -1 = dynamic/latest bar
+    DYNAMIC = -1
+
+    # TIER 1/2 — 2-year backtest gate
+    bt_df = load_or_run_backtest(CASH_EQUITIES, force_fresh=False)
+    bt_lookup = {}
+    if not bt_df.empty:
+        for _, row in bt_df.iterrows():
+            t = row["ticker"]
+            if t not in bt_lookup or row.get("max_1day_return", 0) > bt_lookup[t].get("max_1day_return", 0):
+                bt_lookup[t] = row.to_dict()
+
+        top_tickers = _filtered(list(bt_df["ticker"].unique()[:15]))
+        if top_tickers:
+            sigs   = _scan_live(top_tickers, bt_lookup, entry_bar_idx=DYNAMIC)
+            scored = compute_composite_scores(sigs)
+
+            tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            if tier1:
+                print(f"  [TIER 1] Criteria met: {tier1[0]['ticker']} at {now_ist.strftime('%I:%M %p')}")
+                return _build_result_midday(tier1[:1], now_ist, CONVICTION_HIGH, avail)
+
+            tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
+            if tier2 and tier2[0].get("signals_aligned", 0) >= 2:
+                print(f"  [TIER 2] Partial criteria: {tier2[0]['ticker']}")
+                return _build_result_midday(tier2[:1], now_ist, CONVICTION_MEDIUM, avail)
+
+    # TIER 3
+    orb_lookup = _load_orb_backtest()
+    if orb_lookup:
+        top_orb = _filtered(sorted(orb_lookup, key=lambda t: orb_lookup[t].get("max_1day_return", 0), reverse=True)[:20])
+        if top_orb:
+            sigs   = _scan_live(top_orb, orb_lookup, entry_bar_idx=DYNAMIC)
+            scored = compute_composite_scores(sigs)
+            tier1  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            if tier1:
+                return _build_result_midday(tier1[:1], now_ist, CONVICTION_BEST, avail)
+
+    return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
+
+
 # ── Midday helpers ────────────────────────────────────────────────────────────
 
 def _get_open_positions_today() -> list:
@@ -415,6 +500,21 @@ def _get_open_positions_today() -> list:
             log = json.load(f)
         return [c for c in log.get("calls", [])
                 if c.get("date") == today and c.get("status") == "open"]
+    except Exception:
+        return []
+
+
+def _get_open_positions_today_all() -> list:
+    """Return ALL calls today (open + closed) — used to enforce 2-signal-per-day cap."""
+    from datetime import date
+    today = str(date.today())
+    if not os.path.exists(CALLS_PATH):
+        return []
+    try:
+        with open(CALLS_PATH) as f:
+            log = json.load(f)
+        return [c for c in log.get("calls", [])
+                if c.get("date") == today and c.get("action") == "BUY"]
     except Exception:
         return []
 

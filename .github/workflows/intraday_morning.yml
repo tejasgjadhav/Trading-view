@@ -1,9 +1,7 @@
 name: "9:45 AM — Intraday Signal"
 
 on:
-  schedule:
-    # 9:45 AM IST = 04:15 UTC  (Mon–Fri)
-    - cron: '15 4 * * 1-5'
+  # Disabled — replaced by intraday_continuous.yml (dynamic scan every 5 min)
   workflow_dispatch:
 
 permissions:

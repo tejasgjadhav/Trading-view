@@ -122,7 +122,7 @@ a{color:#58a6ff;text-decoration:none}
 
   <!-- TODAY'S CALLS -->
   <section>
-    <h2>9:45 AM Signal <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
+    <h2>Signal 1 <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
     <div id="call-hero" class="call-hero hold">
       <div class="empty">Loading today's call...</div>
     </div>
@@ -130,9 +130,9 @@ a{color:#58a6ff;text-decoration:none}
     <div id="alloc-box" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
   </section>
 
-  <!-- 11 AM MIDDAY CALL -->
+  <!-- SIGNAL 2 -->
   <section>
-    <h2>11:00 AM Signal <span style="color:#8b949e;font-weight:400;font-size:12px">· Remaining capital deployed if setup found</span></h2>
+    <h2>Signal 2 <span style="color:#8b949e;font-weight:400;font-size:12px">· Triggers when criteria met · remaining capital</span></h2>
     <div id="call-midday" class="call-hero hold">
       <div class="empty">Midday signal runs at 11:00 AM IST — appears here after market opens.</div>
     </div>
@@ -241,27 +241,24 @@ function buildCallHTML(call, label=''){
 
   let priceBoxes='';
   if(a==='BUY'||a==='SELL'){
-    const entPct=call.target&&call.entry?((call.target/call.entry-1)*100).toFixed(1):0;
-    const slPct=call.stoploss&&call.entry?((1-call.stoploss/call.entry)*100).toFixed(1):0;
+    const entPct=call.target&&call.entry?((call.target/call.entry-1)*100).toFixed(2):0;
+    const slPct=call.stoploss&&call.entry?((1-call.stoploss/call.entry)*100).toFixed(2):0;
     const rr=call.reward_risk?`${Number(call.reward_risk).toFixed(1)}:1`:'—';
     priceBoxes=`
-      <div class="call-price-box"><div class="label">Entry</div><div class="value">₹${(call.entry||0).toLocaleString('en-IN')}</div></div>
-      <div class="call-price-box"><div class="label">Target</div><div class="value green">₹${(call.target||0).toLocaleString('en-IN')}</div><div class="sub">+${entPct}%</div></div>
-      <div class="call-price-box"><div class="label">Stop Loss</div><div class="value red">₹${(call.stoploss||0).toLocaleString('en-IN')}</div><div class="sub">-${slPct}%</div></div>
-      <div class="call-price-box"><div class="label">VWAP</div><div class="value blue">₹${(call.vwap||0).toLocaleString('en-IN')}</div></div>
+      <div class="call-price-box"><div class="label">Target</div><div class="value green">+${entPct}%</div></div>
+      <div class="call-price-box"><div class="label">Stop Loss</div><div class="value red">-${slPct}%</div></div>
       <div class="call-price-box"><div class="label">R:R Ratio</div><div class="value yellow">${rr}</div></div>
+      <div class="call-price-box"><div class="label">Max 1-Day (BT)</div><div class="value green">+${call.bt_max_1day!=null?Number(call.bt_max_1day).toFixed(2):'—'}%</div></div>
     `;
-    if(call.bt_max_1day!=null) priceBoxes+=`<div class="call-price-box"><div class="label">Max 1-Day (BT)</div><div class="value green">+${Number(call.bt_max_1day).toFixed(2)}%</div></div>`;
-    if(call.exit){
-      const exitPnl=call.pnl_pct>=0?`<span class="green">+${call.pnl_pct}%</span>`:`<span class="red">${call.pnl_pct}%</span>`;
-      priceBoxes+=`<div class="call-price-box"><div class="label">Exit</div><div class="value">₹${(call.exit||0).toLocaleString('en-IN')}</div><div class="sub">${exitPnl}</div></div>`;
+    if(call.exit&&call.entry){
+      const achieved=((call.exit/call.entry-1)*100).toFixed(2);
+      const exitCol=achieved>=0?'green':'red';
+      priceBoxes+=`<div class="call-price-box"><div class="label">Achieved</div><div class="value ${exitCol}">${achieved>=0?'+':''}${achieved}%</div><div class="sub">${call.exit_reason==='target_hit'?'🎯 Target hit':call.exit_reason==='stoploss_hit'?'🛑 Stopped':'🔔 Closed'}</div></div>`;
     }
   }
 
   const meta=[];
   if(call.vol_ratio) meta.push(`Volume: ${Number(call.vol_ratio).toFixed(1)}x avg`);
-  const orbH=call.orb_high||call.or_high, orbL=call.orb_low||call.or_low;
-  if(orbH) meta.push(`ORB: ₹${Number(orbL).toFixed(2)}–₹${Number(orbH).toFixed(2)}`);
   if(call.signal_time) meta.push(`Signal: ${call.signal_time}`);
   if(call.exit_time) meta.push(`Closed: ${call.exit_time}`);
   if(call.regime) meta.push(`Regime: ${call.regime}`);
@@ -280,13 +277,12 @@ function buildCallHTML(call, label=''){
     </div>`;
   }
 
-  // Backtest + sizing meta row
+  // Backtest meta row — % only, no amounts
   const parts=[];
   if(call.bt_win_rate) parts.push(`BT Win Rate: ${Math.round(call.bt_win_rate*100)}%`);
   if(call.bt_sharpe) parts.push(`Sharpe: ${Number(call.bt_sharpe).toFixed(2)}`);
   if(call.bt_strategy) parts.push(`Strategy: ${call.bt_strategy}`);
-  if(call.invest_inr) parts.push(`Invest: ₹${Math.round(call.invest_inr).toLocaleString('en-IN')} (${call.invest_pct}%)`);
-  if(call.shares) parts.push(`Qty: ${call.shares} shares`);
+  if(call.signals_aligned!=null) parts.push(`Signals: ${call.signals_aligned}/7`);
   const btMeta=parts.length?`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`:'';
 
   // Conviction badge

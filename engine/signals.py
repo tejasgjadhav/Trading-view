@@ -55,10 +55,11 @@ def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
         return {"direction": "NEUTRAL", "signals_aligned": 0,
                 "confidence": 0, "signals_detail": {}, "regime": "UNKNOWN"}
 
-    # ── ORB window: always bars 0-5 (9:15–9:44 AM opening range) ────────────
-    # Entry price bar: parameterised — bar 5 for 9:45 AM, bar 20 for 11 AM.
+    # ── ORB window: bars 0-5 (9:15–9:44 AM opening range) ───────────────────
+    # entry_bar_idx=-1 → use latest available bar (continuous/dynamic mode).
+    # entry_bar_idx=N  → anchor to specific bar (backcompat for fixed-time runs).
     orb_idx   = min(5, len(df_intraday) - 1)
-    entry_idx = min(entry_bar_idx, len(df_intraday) - 1)
+    entry_idx = (len(df_intraday) - 1) if entry_bar_idx < 0 else min(entry_bar_idx, len(df_intraday) - 1)
     current_price = float(df_intraday.iloc[entry_idx]["Close"])
 
     # 1. PDC Position

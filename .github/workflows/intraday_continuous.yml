@@ -1,16 +1,20 @@
-name: "11:00 AM — Midday Signal"
+name: "Continuous Scan — Publish when criteria met"
 
 on:
-  # Disabled — replaced by intraday_continuous.yml (dynamic scan every 5 min)
+  schedule:
+    # Every 5 min, 9:15 AM–3:20 PM IST = 3:45 UTC–9:50 UTC Mon–Fri
+    # GitHub cron minimum is 5 min. Run 3:45–9:55 UTC to cover full window.
+    - cron: '45,50,55 3 * * 1-5'
+    - cron: '*/5 4-9 * * 1-5'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  midday-signal:
+  scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -22,19 +26,19 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Generate 11:00 AM midday signal
-        run: python -m engine.agent --midday
+      - name: Run continuous signal scan
+        run: python -m engine.agent --continuous
         env:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
           GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
 
-      - name: Commit call to repo
+      - name: Commit signal if new call generated
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
           git add data/daily_calls.json
-          git diff --staged --quiet || git commit -m "📊 Midday Signal — $(TZ=Asia/Kolkata date '+%d %b %Y %H:%M IST')"
+          git diff --staged --quiet || git commit -m "📊 Signal triggered — $(TZ=Asia/Kolkata date '+%d %b %Y %H:%M IST')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

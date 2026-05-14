@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import datetime, date
 import pytz
 
-from engine.recommendation import generate_recommendation, generate_midday_recommendation
+from engine.recommendation import generate_recommendation, generate_midday_recommendation, generate_continuous_recommendation
 from engine.config import CAPITAL, CALLS_PATH, REPORTS_DIR, IST
 
 
@@ -240,12 +240,21 @@ def run_midday_agent():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--backtest", action="store_true", help="Backtest only")
-    parser.add_argument("--fresh",    action="store_true", help="Force fresh backtest")
-    parser.add_argument("--midday",   action="store_true", help="Run 11 AM midday scan")
+    parser.add_argument("--backtest",   action="store_true", help="Backtest only")
+    parser.add_argument("--fresh",      action="store_true", help="Force fresh backtest")
+    parser.add_argument("--midday",     action="store_true", help="Run 11 AM midday scan")
+    parser.add_argument("--continuous", action="store_true", help="Continuous scan: publish when criteria met")
     args = parser.parse_args()
 
-    if args.midday:
+    if args.continuous:
+        rec = generate_continuous_recommendation()
+        print_recommendation(rec)
+        # Only save if an actual BUY signal was generated
+        if rec.get("action") == "BUY":
+            save_to_calls_log(rec)
+        else:
+            print(f"  [{rec.get('reason','')}]")
+    elif args.midday:
         run_midday_agent()
     elif args.backtest:
         from engine.backtest import run_all_backtests
