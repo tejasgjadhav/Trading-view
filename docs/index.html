@@ -73,6 +73,16 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .bt-card .bt-row .v{font-weight:600}
 .best-badge{background:rgba(63,185,80,.1);border:1px solid rgba(63,185,80,.3);color:#3fb950;font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;float:right;margin-top:-2px}
 
+/* Signal breakdown */
+.signal-breakdown{margin-top:16px;background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px}
+.sig-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600}
+.sig-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px}
+.sig-item{font-size:12px;padding:5px 10px;border-radius:6px;display:flex;align-items:center;gap:6px;font-weight:500}
+.sig-icon{font-size:14px;font-weight:700;width:16px;text-align:center}
+.sig-y{background:rgba(63,185,80,.1);color:#3fb950}
+.sig-n{background:rgba(248,81,73,.1);color:#f85149}
+.sig-neu{background:rgba(139,148,158,.1);color:#8b949e}
+
 section{margin-bottom:28px}
 h2{font-size:14px;font-weight:600;color:#c9d1d9;margin-bottom:12px}
 .empty{text-align:center;padding:40px;color:#8b949e}
@@ -87,7 +97,7 @@ a{color:#58a6ff;text-decoration:none}
 <header>
   <div>
     <h1>📈 NSE Intraday Dashboard</h1>
-    <div class="sub">Opening Range Breakout + VWAP · Signal @ 9:45 AM IST · Auto-tracked daily</div>
+    <div class="sub">Jane Street 7-Signal · ORB + VWAP · Signal @ 9:45 AM IST · Auto-tracked daily</div>
   </div>
   <div>
     <div id="clock">—<div class="tz">IST</div></div>
@@ -145,7 +155,7 @@ a{color:#58a6ff;text-decoration:none}
 
   <!-- BACKTEST RESULTS -->
   <section>
-    <h2>60-Day Backtest — ORB Strategy on Top NSE Stocks</h2>
+    <h2>60-Day ORB Backtest — NSE Stocks <span style="color:#8b949e;font-weight:400;font-size:12px">(refreshed every Sunday)</span></h2>
     <div class="bt-grid" id="bt-grid"><div class="empty">Loading backtest...</div></div>
   </section>
 
@@ -201,10 +211,39 @@ function renderCall(call){
   }
 
   const meta=[];
-  if(call.vol_ratio) meta.push(`Volume: ${call.vol_ratio}x avg`);
-  if(call.or_high) meta.push(`OR: ₹${call.or_low}–₹${call.or_high}`);
+  if(call.vol_ratio) meta.push(`Volume: ${Number(call.vol_ratio).toFixed(1)}x avg`);
+  const orbH=call.orb_high||call.or_high, orbL=call.orb_low||call.or_low;
+  if(orbH) meta.push(`ORB: ₹${orbL}–₹${orbH}`);
   if(call.signal_time) meta.push(`Signal: ${call.signal_time}`);
   if(call.exit_time) meta.push(`Closed: ${call.exit_time}`);
+  if(call.regime) meta.push(`Regime: ${call.regime}`);
+  if(call.reward_risk) meta.push(`R:R ${Number(call.reward_risk).toFixed(1)}:1`);
+
+  // Jane Street signal breakdown
+  let signalRows='';
+  if(call.signals_detail && Object.keys(call.signals_detail).length){
+    const labels={above_pdc:'Above Prev Close',orb:'ORB Breakout',vwap:'Above VWAP',rsi:'RSI Momentum',ema_trend:'EMA Trend',volume_spike:'Volume Spike',key_level:'Key Level'};
+    signalRows=`<div class="signal-breakdown">
+      <div class="sig-title">Signal Breakdown <span style="color:#8b949e">(${call.signals_aligned||0}/7 aligned · ${call.confidence!=null?Math.round(call.confidence*100)+'% confidence':''})</span></div>
+      <div class="sig-grid">${Object.entries(call.signals_detail).map(([k,v])=>{
+        const icon=v===1?'✓':v===-1?'✗':'–';
+        const cls2=v===1?'sig-y':v===-1?'sig-n':'sig-neu';
+        return `<div class="sig-item ${cls2}"><span class="sig-icon">${icon}</span>${labels[k]||k}</div>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  // Jane Street extra info row
+  let jsMeta='';
+  if(call.bt_win_rate||call.bt_sharpe||call.kelly_pct||call.shares){
+    const parts=[];
+    if(call.bt_win_rate) parts.push(`Backtest WR: ${Math.round(call.bt_win_rate*100)}%`);
+    if(call.bt_sharpe) parts.push(`Sharpe: ${Number(call.bt_sharpe).toFixed(2)}`);
+    if(call.bt_strategy) parts.push(`Strategy: ${call.bt_strategy}`);
+    if(call.shares) parts.push(`Qty: ${call.shares} shares`);
+    if(call.position_value) parts.push(`Position: ₹${Math.round(call.position_value).toLocaleString('en-IN')}`);
+    jsMeta=`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`;
+  }
 
   document.getElementById('call-hero').className=`call-hero ${cls}`;
   document.getElementById('call-hero').innerHTML=`
@@ -213,6 +252,8 @@ function renderCall(call){
     <div class="call-reason">${call.reason||''}</div>
     ${priceBoxes?`<div class="call-prices">${priceBoxes}</div>`:''}
     ${meta.length?`<div class="call-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`:''}
+    ${jsMeta}
+    ${signalRows}
   `;
 }
 

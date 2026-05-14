@@ -136,29 +136,39 @@ def pick_best_call() -> dict:
             continue
 
         sig = calc_orb_signal(df)
-        if sig["action"] == "HOLD":
-            continue   # No live breakout — skip regardless of backtest
+
+        # --- Filter 1: BUY only, no short/sell ---
+        if sig["action"] != "BUY":
+            continue
+
+        # --- Filter 2: Expected return must be ≥ 1% (entry → target) ---
+        entry  = sig.get("entry", 0)
+        target = sig.get("target", 0)
+        expected_return = ((target / entry) - 1) * 100 if entry else 0
+        if expected_return < 1.0:
+            print(f"  ─ {ticker:<20} BUY signal but return only {expected_return:.2f}% — skipped (< 1%)")
+            continue
 
         # --- Step 3: combined score ---
-        live_score = abs(sig.get("score", 0))          # 0–1
+        live_score = abs(sig.get("score", 0))
 
         if has_backtest and bt_ret is not None:
-            bt_score = (bt_ret - min_ret) / ret_range  # 0–1 normalized
+            bt_score = (bt_ret - min_ret) / ret_range
             combined = (bt_score * 0.40) + (live_score * 0.60)
         else:
             combined = live_score
             bt_score = 0.0
             bt_ret   = 0.0
 
-        sig["ticker"]        = ticker
-        sig["bt_return"]     = round(bt_ret, 2)
-        sig["bt_score"]      = round(bt_score, 3)
-        sig["live_score"]    = round(live_score, 3)
+        sig["ticker"]         = ticker
+        sig["bt_return"]      = round(bt_ret, 2)
+        sig["bt_score"]       = round(bt_score, 3)
+        sig["live_score"]     = round(live_score, 3)
         sig["combined_score"] = round(combined, 4)
+        sig["expected_return"]= round(expected_return, 2)
         candidates.append(sig)
 
-        arrow = "▲" if sig["action"] == "BUY" else "▼"
-        print(f"  {arrow} {ticker:<20} ORB={live_score:.3f}  BT={bt_ret:+.1f}%  Combined={combined:.3f}")
+        print(f"  ▲ {ticker:<20} ORB={live_score:.3f}  BT={bt_ret:+.1f}%  Exp={expected_return:.1f}%  Combined={combined:.3f}")
 
     if not candidates:
         print("\n  No actionable setup today — all stocks either failed backtest filter or have no ORB breakout.")
