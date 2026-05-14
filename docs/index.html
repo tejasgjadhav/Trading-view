@@ -83,6 +83,23 @@ tr:hover td{background:rgba(255,255,255,.02)}
 .sig-n{background:rgba(248,81,73,.1);color:#f85149}
 .sig-neu{background:rgba(139,148,158,.1);color:#8b949e}
 
+/* Conviction badge */
+.conv-badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;letter-spacing:.6px;margin-bottom:10px}
+.conv-HIGH{background:rgba(63,185,80,.15);color:#3fb950;border:1px solid rgba(63,185,80,.3)}
+.conv-MEDIUM{background:rgba(210,153,34,.15);color:#d29922;border:1px solid rgba(210,153,34,.3)}
+.conv-BEST{background:rgba(88,166,255,.15);color:#58a6ff;border:1px solid rgba(88,166,255,.3)}
+.conv-EXPLO{background:rgba(139,148,158,.1);color:#8b949e;border:1px solid rgba(139,148,158,.2)}
+
+/* Composite score bar */
+.score-block{margin-top:14px;background:#0d1117;border:1px solid #21262d;border-radius:8px;padding:12px}
+.score-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;font-weight:600}
+.score-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px}
+.score-label{color:#8b949e;width:170px;flex-shrink:0}
+.score-bar-wrap{flex:1;background:#21262d;border-radius:4px;height:6px;overflow:hidden}
+.score-bar{height:6px;border-radius:4px;background:#58a6ff;transition:width .3s}
+.score-pts{color:#c9d1d9;font-weight:600;width:36px;text-align:right;font-size:11px}
+.score-total{font-size:15px;font-weight:700;color:#58a6ff;margin-top:8px}
+
 section{margin-bottom:28px}
 h2{font-size:14px;font-weight:600;color:#c9d1d9;margin-bottom:12px}
 .empty{text-align:center;padding:40px;color:#8b949e}
@@ -246,15 +263,56 @@ function buildCallHTML(call, label=''){
   if(call.shares) parts.push(`Qty: ${call.shares} shares`);
   const btMeta=parts.length?`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`:'';
 
-  const badgeLabel=label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600;letter-spacing:.5px">${label}</span>`:'';
+  // Conviction badge
+  const CONV_MAP={
+    'HIGH':       {cls:'conv-HIGH',   label:'HIGH CONVICTION'},
+    'MEDIUM':     {cls:'conv-MEDIUM', label:'MEDIUM CONVICTION'},
+    'BEST MATCH': {cls:'conv-BEST',   label:'BEST MATCH'},
+    'EXPLORATORY':{cls:'conv-EXPLO',  label:'EXPLORATORY'},
+  };
+  const conv=call.conviction||'';
+  const convInfo=CONV_MAP[conv]||null;
+  const convBadge=convInfo?`<span class="conv-badge ${convInfo.cls}">${convInfo.label}</span>`:'';
+
+  // Composite score breakdown
+  const SCORE_LABELS={
+    max_1day_return:'Max 1-Day Return (BT)',
+    win_rate:'Backtest Win Rate',
+    sharpe_ratio:'Sharpe Ratio',
+    confidence:'Live Signal Confidence',
+    expected_return:'Expected Return Today',
+    vol_ratio:'Volume Confirmation',
+  };
+  let scoreBlock='';
+  const sb=call.score_breakdown;
+  const cs=call.composite_score;
+  if(sb && Object.keys(sb).length && cs!=null){
+    const rows=Object.entries(sb).map(([k,pts])=>{
+      const pct=Math.min(pts/5*100,100);
+      return `<div class="score-row">
+        <span class="score-label">${SCORE_LABELS[k]||k}</span>
+        <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%"></div></div>
+        <span class="score-pts">${Number(pts).toFixed(1)}</span>
+      </div>`;
+    }).join('');
+    scoreBlock=`<div class="score-block">
+      <div class="score-title">Composite Score Breakdown
+        <span class="score-total" style="float:right">${Number(cs).toFixed(1)}<span style="font-size:11px;color:#8b949e;font-weight:400">/100</span></span>
+      </div>
+      ${rows}
+    </div>`;
+  }
+
+  const rankLabel=label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600;letter-spacing:.5px">${label}</span>`:'';
 
   return `
-    <span class="call-badge ${badgeCls}">${a}</span>${badgeLabel}
+    <span class="call-badge ${badgeCls}">${a}</span>${rankLabel}${convBadge?'&nbsp;&nbsp;'+convBadge:''}
     <div class="call-ticker">${ticker}</div>
     <div class="call-reason">${call.reason||''}</div>
     ${priceBoxes?`<div class="call-prices">${priceBoxes}</div>`:''}
     ${meta.length?`<div class="call-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`:''}
     ${btMeta}
+    ${scoreBlock}
     ${signalRows}
   `;
 }

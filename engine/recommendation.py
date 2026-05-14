@@ -1,27 +1,29 @@
 """
 Quant Signal Engine — Recommendation Generator
 ─────────────────────────────────────────────────────────────────────────────
-Outputs UP TO TWO calls per day with capital allocation commentary.
-Primary call = highest max-1-day-return setup.
-Secondary call = second-best setup (if strong enough).
+Outputs UP TO TWO calls per day. ALWAYS outputs at least one stock.
 
-Rules enforced:
-  • Backtest >= 80% win rate (gate)
-  • >= 3 of 7 signals aligned
-  • Min 2:1 reward:risk
-  • Min 1% expected return
-  • LONG only (ONLY_BUY = True)
-  • Kill switch at 2:00 PM IST
+4-TIER FALLBACK — something always comes out:
+  Tier 1 (HIGH conviction)        → 70% WR + ≥3/7 live signals
+  Tier 2 (MEDIUM conviction)      → 70% WR + ≥1/7 live signals
+  Tier 3 (BEST MATCH)             → 60-day ORB data (all 95 stocks) + best live signals
+  Tier 4 (EXPLORATORY)            → Pure live scan, all 95 stocks, no backtest gate
+
+COMPOSITE SCORE (0–100) across 6 parameters:
+  max_1day_return (25%) · win_rate (20%) · sharpe (15%) ·
+  live_confidence (20%) · expected_return (10%) · vol_ratio (10%)
 """
-import os, json
+import os, json, warnings
+warnings.filterwarnings("ignore")
 import pandas as pd
+import numpy as np
 from datetime import datetime
-import pytz
 
 from engine.config import (
-    CASH_EQUITIES, MIN_WIN_RATE_THRESHOLD, MIN_SIGNALS_REQUIRED,
+    CASH_EQUITIES, WATCHLIST, MIN_WIN_RATE_THRESHOLD,
+    MIN_SIGNALS_REQUIRED, MIN_SIGNALS_WATCHLIST,
     MIN_REWARD_RISK, MIN_RETURN_PCT, CAPITAL, KILL_SWITCH_TIME,
-    ONLY_BUY, IST, CALLS_PATH
+    ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH
 )
 from engine.data_fetcher import fetch_historical, fetch_intraday, get_previous_day_levels
 from engine.signals import compute_signals
@@ -29,23 +31,103 @@ from engine.backtest import load_or_run_backtest
 from engine.risk_manager import RiskManager
 
 
+# ── Conviction labels ────────────────────────────────────────────────────────
+CONVICTION_HIGH   = "HIGH"
+CONVICTION_MEDIUM = "MEDIUM"
+CONVICTION_BEST   = "BEST MATCH"
+CONVICTION_EXPLO  = "EXPLORATORY"
+
+
 def _no_trade(reason: str) -> dict:
     return {
-        "action":    "NO_TRADE",
-        "reason":    reason,
-        "timestamp": datetime.now(IST).isoformat(),
-        "calls":     [],
+        "action":     "NO_TRADE",
+        "reason":     reason,
+        "timestamp":  datetime.now(IST).isoformat(),
+        "calls":      [],
         "allocation": None,
     }
 
 
-def _build_call(sig: dict, now_ist: datetime) -> dict | None:
-    """Build a single BUY call dict from a signal result. Returns None if levels fail."""
-    ticker   = sig["ticker"]
-    entry    = sig["current_price"]
-    orb_low  = sig["orb_low"]
-    orb_high = sig["orb_high"]
-    vwap     = sig["vwap"]
+# ── Composite scorer ─────────────────────────────────────────────────────────
+
+def _normalize(values: list, cap: float = None) -> list:
+    arr = [min(float(v), cap) if cap else float(v) for v in values]
+    lo, hi = min(arr), max(arr)
+    if hi == lo:
+        return [1.0] * len(arr)
+    return [(v - lo) / (hi - lo) for v in arr]
+
+
+def compute_composite_scores(candidates: list) -> list:
+    """
+    Add composite_score (0-100) and score_breakdown to each candidate.
+    Normalizes each factor across the pool before weighting.
+    """
+    if not candidates:
+        return candidates
+
+    def col(key):
+        return [float(c.get(key, 0) or 0) for c in candidates]
+
+    factors = {
+        "max_1day_return": _normalize(col("bt_max_1day_return"), cap=10.0),
+        "win_rate":        _normalize(col("bt_win_rate")),
+        "sharpe_ratio":    _normalize(col("bt_sharpe"), cap=5.0),
+        "confidence":      _normalize(col("confidence")),
+        "expected_return": _normalize(col("expected_return"), cap=5.0),
+        "vol_ratio":       _normalize([min(v, 3.0) for v in col("vol_ratio")]),
+    }
+
+    for i, c in enumerate(candidates):
+        score = sum(SCORE_WEIGHTS[k] * factors[k][i] for k in SCORE_WEIGHTS) * 100
+        c["composite_score"] = round(score, 1)
+        c["score_breakdown"] = {k: round(SCORE_WEIGHTS[k] * factors[k][i] * 100, 1) for k in SCORE_WEIGHTS}
+
+    return sorted(candidates, key=lambda x: x["composite_score"], reverse=True)
+
+
+# ── Live signal scanner ───────────────────────────────────────────────────────
+
+def _scan_live(tickers: list, bt_lookup: dict = None) -> list:
+    results = []
+    for ticker in tickers:
+        try:
+            df_daily = fetch_historical(ticker, years=0.5)
+            df_5min  = fetch_intraday(ticker, interval="5m", period="1d")
+            if df_5min.empty or len(df_5min) < 4:
+                continue
+            levels = get_previous_day_levels(ticker, df_daily)
+            sig    = compute_signals(df_daily, df_5min,
+                                     levels["pdh"], levels["pdl"], levels["pdc"])
+            sig["ticker"] = ticker
+            bt = (bt_lookup or {}).get(ticker, {})
+            sig["bt_win_rate"]        = float(bt.get("win_rate", 0) or 0)
+            sig["bt_sharpe"]          = float(bt.get("sharpe_ratio", bt.get("sharpe", 0)) or 0)
+            sig["bt_strategy"]        = bt.get("strategy", "ORB")
+            sig["bt_max_1day_return"] = float(bt.get("max_1day_return", 0) or 0)
+            # Pre-compute expected_return for scoring
+            entry   = sig.get("current_price", 0)
+            orb_low = sig.get("orb_low", entry * 0.99)
+            stop    = orb_low * 0.998
+            risk    = entry - stop
+            target  = entry + risk * MIN_REWARD_RISK if risk > 0 else entry * 1.02
+            sig["expected_return"] = round((target / entry - 1) * 100, 2) if entry else 0
+            results.append(sig)
+        except Exception:
+            pass
+    return results
+
+
+# ── Level builder ────────────────────────────────────────────────────────────
+
+def _build_call(sig: dict, now_ist: datetime, conviction: str) -> dict | None:
+    ticker  = sig["ticker"]
+    entry   = sig.get("current_price", 0)
+    orb_low = sig.get("orb_low", entry * 0.99)
+    vwap    = sig.get("vwap", entry)
+
+    if not entry or entry <= 0:
+        return None
 
     stop  = round(orb_low * 0.998, 2)
     risk  = entry - stop
@@ -53,232 +135,266 @@ def _build_call(sig: dict, now_ist: datetime) -> dict | None:
         return None
 
     target = round(entry + risk * MIN_REWARD_RISK, 2)
-    exp_return_pct = (target / entry - 1) * 100
-    rr = (target - entry) / (entry - stop)
+    exp    = (target / entry - 1) * 100
+    rr     = (target - entry) / (entry - stop)
 
-    if exp_return_pct < MIN_RETURN_PCT:
-        return None
-    if rr < MIN_REWARD_RISK:
+    if exp < MIN_RETURN_PCT or rr < MIN_REWARD_RISK:
         return None
 
     sizing = RiskManager().kelly_position(
-        win_rate=sig["bt_win_rate"],
-        entry=entry,
-        stop=stop
+        win_rate=max(sig.get("bt_win_rate", 0.5), 0.5),
+        entry=entry, stop=stop
     )
 
     return {
         "action":           "BUY",
-        "type":             "EQUITY",
         "ticker":           ticker,
-        "exchange":         "NSE",
         "entry":            round(entry, 2),
         "target":           round(target, 2),
         "stop_loss":        stop,
-        "expected_return":  round(exp_return_pct, 2),
+        "expected_return":  round(exp, 2),
         "reward_risk":      round(rr, 2),
         "shares":           sizing["shares"],
         "position_value":   sizing["position_value"],
         "risk_amount":      sizing["risk_amount"],
         "risk_pct":         sizing["risk_pct"],
         "kelly_pct":        sizing["kelly_pct"],
-        "signals_aligned":  sig["signals_aligned"],
-        "signals_detail":   sig["signals_detail"],
-        "confidence":       sig["confidence"],
-        "regime":           sig["regime"],
+        "signals_aligned":  sig.get("signals_aligned", 0),
+        "signals_detail":   sig.get("signals_detail", {}),
+        "confidence":       sig.get("confidence", 0),
+        "regime":           sig.get("regime", "UNKNOWN"),
         "vwap":             vwap,
-        "orb_high":         orb_high,
+        "orb_high":         sig.get("orb_high", entry * 1.005),
         "orb_low":          orb_low,
-        "rsi":              sig["rsi"],
+        "rsi":              sig.get("rsi", 50),
         "vol_ratio":        sig.get("vol_ratio", 0),
-        "bt_win_rate":      round(sig["bt_win_rate"], 4),
-        "bt_sharpe":        round(sig["bt_sharpe"], 3),
-        "bt_strategy":      sig["bt_strategy"],
+        "bt_win_rate":      round(sig.get("bt_win_rate", 0), 4),
+        "bt_sharpe":        round(sig.get("bt_sharpe", 0), 3),
+        "bt_strategy":      sig.get("bt_strategy", "ORB"),
         "bt_max_1day":      round(sig.get("bt_max_1day_return", 0), 2),
+        "composite_score":  sig.get("composite_score", 0),
+        "score_breakdown":  sig.get("score_breakdown", {}),
+        "conviction":       conviction,
         "exit_rule":        f"Sell at ₹{round(target,2):,.2f} if hit. Close ALL by {KILL_SWITCH_TIME} IST.",
-        "kill_switch":      f"FORCE CLOSE at {KILL_SWITCH_TIME} IST regardless of P&L.",
         "timestamp":        now_ist.isoformat(),
     }
 
 
+def _force_call(sig: dict, now_ist: datetime, conviction: str) -> dict:
+    """Last-resort call with default 1.5% stop / 2% target when ORB levels fail."""
+    entry  = sig.get("current_price", 0)
+    stop   = round(entry * 0.985, 2)
+    target = round(entry * 1.02, 2)
+    shares = max(1, int(CAPITAL * 0.10 / entry)) if entry else 1
+    return {
+        "action": "BUY", "ticker": sig["ticker"],
+        "entry": round(entry, 2), "target": target, "stop_loss": stop,
+        "expected_return": 2.0, "reward_risk": round((target-entry)/(entry-stop), 2),
+        "shares": shares, "position_value": round(shares*entry, 2),
+        "risk_amount": round(shares*(entry-stop), 2), "risk_pct": 1.5, "kelly_pct": 10.0,
+        "signals_aligned": sig.get("signals_aligned", 0),
+        "signals_detail": sig.get("signals_detail", {}),
+        "confidence": sig.get("confidence", 0), "regime": sig.get("regime", "UNKNOWN"),
+        "vwap": sig.get("vwap", entry), "orb_high": sig.get("orb_high", entry*1.005),
+        "orb_low": sig.get("orb_low", entry*0.995), "rsi": sig.get("rsi", 50),
+        "vol_ratio": sig.get("vol_ratio", 1), "bt_win_rate": sig.get("bt_win_rate", 0),
+        "bt_sharpe": sig.get("bt_sharpe", 0), "bt_strategy": sig.get("bt_strategy", "ORB"),
+        "bt_max_1day": sig.get("bt_max_1day_return", 0),
+        "composite_score": sig.get("composite_score", 0),
+        "score_breakdown": sig.get("score_breakdown", {}),
+        "conviction": conviction,
+        "exit_rule": f"Close by {KILL_SWITCH_TIME} IST. Default levels used (ORB data unavailable).",
+        "timestamp": now_ist.isoformat(),
+    }
+
+
+# ── Allocation commentary ─────────────────────────────────────────────────────
+
 def _allocation_commentary(calls: list, capital: float = CAPITAL) -> dict:
-    """
-    Compute how much to invest in each call.
-    Total position value must not exceed 85% of capital.
-    If 2 calls, scale down proportionally if needed.
-    """
     if not calls:
         return {}
 
     if len(calls) == 1:
         c = calls[0]
-        invest = min(c["position_value"], capital * 0.85)
-        shares = int(invest / c["entry"])
-        pct    = round(invest / capital * 100, 1)
-        cash_reserve = capital - invest
+        invest  = min(c["position_value"], capital * 0.85)
+        shares  = max(1, int(invest / c["entry"]))
+        pct     = round(invest / capital * 100, 1)
+        reserve = round(capital - invest)
         lines = [
-            f"Single signal today. Invest ₹{invest:,.0f} ({pct}% of capital) in {c['ticker']}.",
+            f"Single signal today.",
+            f"Invest ₹{invest:,.0f} ({pct}% of ₹1L) in {c['ticker']}.",
             f"Buy {shares} shares @ ₹{c['entry']:,.2f}.",
-            f"Keep ₹{cash_reserve:,.0f} as cash reserve.",
-            f"Expected gain if target hit: +{c['expected_return']:.1f}% → ₹{shares*(c['target']-c['entry']):,.0f}.",
-            f"Max loss if stop hit: -₹{shares*(c['entry']-c['stop_loss']):,.0f}.",
+            f"Target ₹{c['target']:,.2f} (+{c['expected_return']:.1f}%)  |  Stop ₹{c['stop_loss']:,.2f}.",
+            f"Keep ₹{reserve:,.0f} as cash buffer.",
+            f"Conviction: {c.get('conviction','—')}  |  Composite score: {c.get('composite_score',0):.1f}/100.",
         ]
         return {
             "primary":      {"ticker": c["ticker"], "invest_inr": round(invest), "invest_pct": pct, "shares": shares},
             "secondary":    None,
-            "cash_reserve": round(cash_reserve),
+            "cash_reserve": reserve,
             "commentary":   " ".join(lines),
         }
 
-    # 2 calls — split proportionally by confidence × max_1day_return
     c1, c2 = calls[0], calls[1]
-    score1  = c1["confidence"] * c1.get("bt_max_1day", 1)
-    score2  = c2["confidence"] * c2.get("bt_max_1day", 1)
-    total_score = score1 + score2 if (score1 + score2) > 0 else 1
+    s1 = max(c1.get("composite_score", 1), 1)
+    s2 = max(c2.get("composite_score", 1), 1)
+    total = s1 + s2
 
-    # Proportional split, capped at 85% total
-    alloc1 = min(c1["position_value"], capital * 0.85 * score1 / total_score)
-    alloc2 = min(c2["position_value"], capital * 0.85 * score2 / total_score)
-    total_alloc = alloc1 + alloc2
-
-    if total_alloc > capital * 0.85:
-        scale = (capital * 0.85) / total_alloc
+    alloc1 = min(c1["position_value"], capital * 0.85 * s1 / total)
+    alloc2 = min(c2["position_value"], capital * 0.85 * s2 / total)
+    if alloc1 + alloc2 > capital * 0.85:
+        scale  = capital * 0.85 / (alloc1 + alloc2)
         alloc1 *= scale
         alloc2 *= scale
 
-    shares1 = max(1, int(alloc1 / c1["entry"]))
-    shares2 = max(1, int(alloc2 / c2["entry"]))
-    pct1    = round(alloc1 / capital * 100, 1)
-    pct2    = round(alloc2 / capital * 100, 1)
-    reserve = capital - alloc1 - alloc2
+    sh1  = max(1, int(alloc1 / c1["entry"]))
+    sh2  = max(1, int(alloc2 / c2["entry"]))
+    p1   = round(alloc1 / capital * 100, 1)
+    p2   = round(alloc2 / capital * 100, 1)
+    res  = round(capital - alloc1 - alloc2)
 
     lines = [
         f"Two signals today — split ₹1L as follows:",
-        f"► {c1['ticker']}: ₹{alloc1:,.0f} ({pct1}% of capital) — {shares1} shares @ ₹{c1['entry']:,.2f}. "
-        f"Target +{c1['expected_return']:.1f}%, Stop -{round((c1['entry']-c1['stop_loss'])/c1['entry']*100,1)}%.",
-        f"► {c2['ticker']}: ₹{alloc2:,.0f} ({pct2}% of capital) — {shares2} shares @ ₹{c2['entry']:,.2f}. "
-        f"Target +{c2['expected_return']:.1f}%, Stop -{round((c2['entry']-c2['stop_loss'])/c2['entry']*100,1)}%.",
-        f"► Cash reserve: ₹{reserve:,.0f} (buffer for intraday slippage).",
-        f"Allocation weighted by confidence × max 1-day return. {c1['ticker']} is primary ({pct1}%), {c2['ticker']} secondary ({pct2}%).",
+        f"► PRIMARY {c1['ticker']} (score {c1.get('composite_score',0):.0f}/100, {c1.get('conviction','')}): "
+        f"₹{alloc1:,.0f} ({p1}%) — {sh1} shares @ ₹{c1['entry']:,.2f}, target +{c1['expected_return']:.1f}%.",
+        f"► SECONDARY {c2['ticker']} (score {c2.get('composite_score',0):.0f}/100, {c2.get('conviction','')}): "
+        f"₹{alloc2:,.0f} ({p2}%) — {sh2} shares @ ₹{c2['entry']:,.2f}, target +{c2['expected_return']:.1f}%.",
+        f"► Cash buffer ₹{res:,.0f}.",
     ]
     return {
-        "primary":      {"ticker": c1["ticker"], "invest_inr": round(alloc1), "invest_pct": pct1, "shares": shares1},
-        "secondary":    {"ticker": c2["ticker"], "invest_inr": round(alloc2), "invest_pct": pct2, "shares": shares2},
-        "cash_reserve": round(reserve),
+        "primary":      {"ticker": c1["ticker"], "invest_inr": round(alloc1), "invest_pct": p1, "shares": sh1},
+        "secondary":    {"ticker": c2["ticker"], "invest_inr": round(alloc2), "invest_pct": p2, "shares": sh2},
+        "cash_reserve": res,
         "commentary":   " ".join(lines),
     }
 
 
+# ── Build result ─────────────────────────────────────────────────────────────
+
+def _build_result(top_sigs: list, now_ist: datetime, conviction: str) -> dict:
+    built = []
+    for s in top_sigs:
+        c = _build_call(s, now_ist, conviction)
+        if c:
+            built.append(c)
+
+    # Last-resort: force levels if ORB math failed
+    if not built and top_sigs:
+        s = top_sigs[0]
+        if s.get("current_price", 0) > 0:
+            built.append(_force_call(s, now_ist, conviction))
+
+    if not built:
+        return _no_trade("Could not build valid levels for any candidate.")
+
+    allocation = _allocation_commentary(built)
+    return {
+        "action":     "BUY",
+        "calls":      built,
+        "allocation": allocation,
+        "conviction": conviction,
+        "timestamp":  now_ist.isoformat(),
+        **built[0],
+    }
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _load_orb_backtest() -> dict:
+    if not os.path.exists(ORB_BACKTEST_PATH):
+        return {}
+    try:
+        with open(ORB_BACKTEST_PATH) as f:
+            data = json.load(f)
+        lookup = {}
+        for r in data.get("results", []):
+            t = r.get("ticker", "")
+            if t:
+                wr = r.get("win_rate", 0)
+                lookup[t] = {
+                    "win_rate":        wr / 100 if wr > 1 else wr,
+                    "max_1day_return": r.get("max_1day_return", 0),
+                    "sharpe_ratio":    0,
+                    "strategy":        "ORB",
+                }
+        return lookup
+    except Exception:
+        return {}
+
+
+def _print_candidates(sigs: list, label: str):
+    for s in sigs:
+        print(f"  [{label}] {s['ticker']:<18} score={s.get('composite_score',0):5.1f}/100  "
+              f"signals={s.get('signals_aligned',0)}/7  conf={s.get('confidence',0):.0%}  "
+              f"maxDay={s.get('bt_max_1day_return',0):+.1f}%  vol={s.get('vol_ratio',0):.1f}x")
+
+
+# ── Main ─────────────────────────────────────────────────────────────────────
+
 def generate_recommendation(force_fresh_backtest: bool = False) -> dict:
-    """
-    MAIN FUNCTION — call at 9:45 AM every trading day.
-    Returns recommendation dict with up to 2 calls and allocation commentary.
-    """
+    """MAIN — call at 9:45 AM. Always returns at least one call."""
     now_ist = datetime.now(IST)
-    risk    = RiskManager(capital=CAPITAL)
 
     print(f"\n{'='*65}")
     print(f"  QUANT SIGNAL ENGINE — {now_ist.strftime('%d %b %Y  %I:%M %p IST')}")
-    print(f"  Capital: ₹{CAPITAL:,.0f}  |  Rules: BUY only, >=80% WR, >=3/7 signals, 2:1 R:R")
-    print(f"  Ranking: Max 1-day return (best single intraday gain in backtest)")
+    print(f"  Capital: ₹{CAPITAL:,.0f}  |  Gate: ≥{MIN_WIN_RATE_THRESHOLD:.0%} WR  |  BUY only")
+    print(f"  Composite: max1d·25% + WR·20% + Sharpe·15% + conf·20% + retExp·10% + vol·10%")
     print(f"{'='*65}\n")
 
-    # -- STEP 1: Backtest gate ---------------------------------------------
-    print(f"[1/4] Loading backtest results (2-year, >=80% win rate gate)...")
+    # ── TIER 1 & 2: 2-year backtest gate ────────────────────────────────────
+    print(f"[TIER 1/2] 2-year backtest (≥{MIN_WIN_RATE_THRESHOLD:.0%} WR)...")
     bt_df = load_or_run_backtest(CASH_EQUITIES, force_fresh=force_fresh_backtest)
+    bt_lookup = {}
 
-    if bt_df.empty:
-        return _no_trade(f"Zero strategies passed {MIN_WIN_RATE_THRESHOLD:.0%} win rate. No trade today.")
+    if not bt_df.empty:
+        for _, row in bt_df.iterrows():
+            t = row["ticker"]
+            if t not in bt_lookup or row.get("max_1day_return", 0) > bt_lookup[t].get("max_1day_return", 0):
+                bt_lookup[t] = row.to_dict()
 
-    print(f"  {len(bt_df)} strategy-ticker combos passed backtest")
-    for _, row in bt_df.head(5).iterrows():
-        max1d = row.get("max_1day_return", 0)
-        print(f"    {row['ticker']:<18} {row['strategy']:<12} WR={row['win_rate']:.1%}  "
-              f"MaxDay={max1d:+.2f}%  Sharpe={row['sharpe_ratio']:.2f}")
+        top_tickers = list(bt_df["ticker"].unique()[:15])
+        print(f"  {len(bt_df)} combos passed. Scanning {len(top_tickers)} live...")
+        sigs = _scan_live(top_tickers, bt_lookup)
+        scored = compute_composite_scores(sigs)
 
-    # -- STEP 2: Live signals for top backtest candidates ------------------
-    print(f"\n[2/4] Computing live signals for top {min(10,len(bt_df))} candidates...")
+        tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+        if tier1:
+            print(f"  [TIER 1] {len(tier1)} stock(s) with ≥{MIN_SIGNALS_REQUIRED}/7 signals")
+            _print_candidates(tier1[:3], "TIER 1")
+            return _build_result(tier1[:2], now_ist, CONVICTION_HIGH)
 
-    top_tickers = bt_df["ticker"].unique()[:10]
-    signal_results = []
+        tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
+        if tier2:
+            print(f"  [TIER 2] No ≥{MIN_SIGNALS_REQUIRED} signals. Best with ≥{MIN_SIGNALS_WATCHLIST}: {len(tier2)} stock(s)")
+            _print_candidates(tier2[:3], "TIER 2")
+            return _build_result(tier2[:2], now_ist, CONVICTION_MEDIUM)
 
-    for ticker in top_tickers:
-        try:
-            df_daily = fetch_historical(ticker, years=0.5)
-            df_5min  = fetch_intraday(ticker, interval="5m", period="1d")
-            if df_5min.empty or len(df_5min) < 6:
-                continue
-            levels = get_previous_day_levels(ticker, df_daily)
-            sig = compute_signals(df_daily, df_5min,
-                                  levels["pdh"], levels["pdl"], levels["pdc"])
-            sig["ticker"] = ticker
+        print(f"  [TIER 1/2] Nothing cleared even minimum bar in 2-yr pool.")
+    else:
+        print(f"  [TIER 1/2] No combos passed ≥{MIN_WIN_RATE_THRESHOLD:.0%} WR gate.")
 
-            # Best matching backtest row for this ticker
-            bt_rows = bt_df[bt_df["ticker"] == ticker]
-            if not bt_rows.empty:
-                best_bt = bt_rows.sort_values("max_1day_return", ascending=False).iloc[0]
-                sig["bt_win_rate"]         = float(best_bt["win_rate"])
-                sig["bt_sharpe"]           = float(best_bt["sharpe_ratio"])
-                sig["bt_strategy"]         = best_bt["strategy"]
-                sig["bt_max_1day_return"]  = float(best_bt.get("max_1day_return", 0))
-            else:
-                sig["bt_win_rate"]         = 0
-                sig["bt_sharpe"]           = 0
-                sig["bt_strategy"]         = "ORB"
-                sig["bt_max_1day_return"]  = 0
+    # ── TIER 3: 60-day ORB backtest (all 95 stocks) ─────────────────────────
+    print(f"\n[TIER 3] 60-day ORB backtest — full {len(WATCHLIST)}-stock universe...")
+    orb_lookup = _load_orb_backtest()
 
-            signal_results.append(sig)
+    if orb_lookup:
+        top_orb = sorted(orb_lookup, key=lambda t: orb_lookup[t].get("max_1day_return", 0), reverse=True)[:20]
+        print(f"  Scanning top 20 stocks by max 1-day ORB return...")
+        sigs   = _scan_live(top_orb, orb_lookup)
+        scored = compute_composite_scores(sigs)
+        best   = [s for s in scored if s.get("current_price", 0) > 0]
+        if best:
+            print(f"  [TIER 3] Best match: {best[0]['ticker']}  score={best[0].get('composite_score',0):.1f}/100")
+            return _build_result(best[:1], now_ist, CONVICTION_BEST)
 
-            aligned = sig["signals_aligned"]
-            icon = "OK" if sig["direction"] == "LONG" and aligned >= MIN_SIGNALS_REQUIRED else "-"
-            print(f"  [{icon}] {ticker:<18} {sig['direction']:<8} signals={aligned}/7  "
-                  f"conf={sig['confidence']:.0%}  RSI={sig['rsi']:.0f}  "
-                  f"vol={sig['vol_ratio']:.1f}x  maxDay={sig['bt_max_1day_return']:+.1f}%")
+    # ── TIER 4: Pure live scan — all 95 stocks, no backtest ─────────────────
+    print(f"\n[TIER 4] EXPLORATORY — live scanning all {len(WATCHLIST)} stocks...")
+    sigs   = _scan_live(WATCHLIST, {})
+    scored = compute_composite_scores(sigs)
+    pool   = [s for s in scored if s.get("direction") == "LONG"] or scored
 
-        except Exception as e:
-            print(f"  ! {ticker:<18} {e}")
+    if pool:
+        print(f"  [TIER 4] Best exploratory: {pool[0]['ticker']}  score={pool[0].get('composite_score',0):.1f}/100")
+        return _build_result(pool[:1], now_ist, CONVICTION_EXPLO)
 
-    # -- STEP 3: Select best 2 setups -------------------------------------
-    print(f"\n[3/4] Selecting top BUY setups (ranked by max 1-day return)...")
-
-    actionable = [
-        s for s in signal_results
-        if s["direction"] == "LONG"
-        and s["signals_aligned"] >= MIN_SIGNALS_REQUIRED
-    ]
-
-    if not actionable:
-        return _no_trade(
-            f"No stock had >={MIN_SIGNALS_REQUIRED}/7 signals aligned in LONG direction today. "
-            f"Checked {len(signal_results)} stocks."
-        )
-
-    # Score = max_1day_return × confidence × win_rate (prioritises max 1-day gain)
-    for s in actionable:
-        s["_score"] = s["bt_max_1day_return"] * s["confidence"] * s["bt_win_rate"]
-
-    actionable.sort(key=lambda x: x["_score"], reverse=True)
-    top2 = actionable[:2]
-
-    # -- STEP 4: Build calls + allocation ---------------------------------
-    print(f"\n[4/4] Building recommendation(s) for {[s['ticker'] for s in top2]}...")
-
-    built_calls = []
-    for s in top2:
-        c = _build_call(s, now_ist)
-        if c:
-            built_calls.append(c)
-
-    if not built_calls:
-        return _no_trade("Signals passed gate but levels/risk checks failed for all candidates.")
-
-    allocation = _allocation_commentary(built_calls, capital=CAPITAL)
-
-    return {
-        "action":     "BUY",
-        "calls":      built_calls,
-        "allocation": allocation,
-        "timestamp":  now_ist.isoformat(),
-        # Flatten first call fields for backward-compat
-        **built_calls[0],
-    }
+    return _no_trade("No data available from any source. Check NSE / yfinance connectivity.")

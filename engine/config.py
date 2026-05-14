@@ -69,13 +69,28 @@ STAT_ARB_ZSCORE_EXIT       = 0.5
 VOLUME_SURGE_MULTIPLIER    = 1.5
 
 # --- SIGNAL CONFLUENCE ---
-MIN_SIGNALS_REQUIRED = 3   # Must have ≥3 of 7 signals aligned
+MIN_SIGNALS_REQUIRED        = 3   # Full BUY: ≥3 of 7 signals
+MIN_SIGNALS_WATCHLIST       = 1   # Reduced conviction: ≥1 of 7 signals
 
 # --- BACKTEST CONFIG ---
 BACKTEST_PERIOD_YEARS   = 2
-MIN_WIN_RATE_THRESHOLD  = 0.80   # Agent does NOT trade if backtest < 80%
+MIN_WIN_RATE_THRESHOLD  = 0.70   # Gate: ≥70% win rate required for Tier 1/2
 COMMISSION_PER_TRADE    = 20     # INR per order (Zerodha)
 SLIPPAGE_PERCENT        = 0.001  # 0.1%
+
+# --- COMPOSITE SCORE WEIGHTS (must sum to 1.0) ---
+# Score is 0–100; each factor normalized to 0–1 before weighting
+SCORE_WEIGHTS = {
+    "max_1day_return":  0.25,   # Best single-day backtest gain potential
+    "win_rate":         0.20,   # Historical reliability
+    "sharpe_ratio":     0.15,   # Risk-adjusted consistency
+    "confidence":       0.20,   # Live signal alignment (signals/7)
+    "expected_return":  0.10,   # Entry→target % today
+    "vol_ratio":        0.10,   # Volume confirmation (capped at 3×)
+}
+
+# --- FALLBACK TICKERS (expanded NSE universe for deep scan) ---
+ORB_BACKTEST_PATH = "results/intraday_backtest.json"  # 60-day data for 95 stocks
 
 # --- ONLY BUY (user requirement) ---
 ONLY_BUY = True   # Never short, never puts

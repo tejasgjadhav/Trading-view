@@ -28,8 +28,26 @@ def print_recommendation(rec: dict):
         print(f"{'='*65}")
         return
 
-    calls = rec.get("calls", [rec])
-    alloc = rec.get("allocation", {})
+    calls      = rec.get("calls", [rec])
+    alloc      = rec.get("allocation", {})
+    conviction = rec.get("conviction", "—")
+
+    CONV_DESC = {
+        "HIGH":         "All gates passed (≥70% WR + ≥3/7 signals)",
+        "MEDIUM":       "Backtest passed, signals below threshold — take with care",
+        "BEST MATCH":   "Best stock today from 60-day ORB universe — no 2yr WR gate",
+        "EXPLORATORY":  "No backtest data available — pure live signal scan",
+    }
+    print(f"\n  CONVICTION : {conviction}  —  {CONV_DESC.get(conviction,'')}")
+
+    SCORE_LABELS = {
+        "max_1day_return": "Max 1-Day Return (BT)",
+        "win_rate":        "Backtest Win Rate",
+        "sharpe_ratio":    "Sharpe Ratio",
+        "confidence":      "Live Signal Confidence",
+        "expected_return": "Expected Return Today",
+        "vol_ratio":       "Volume Confirmation",
+    }
 
     for i, call in enumerate(calls):
         label = "PRIMARY" if i == 0 else "SECONDARY"
@@ -39,16 +57,20 @@ def print_recommendation(rec: dict):
         print(f"  Entry Price  : ₹{call['entry']:,.2f}   (9:45 AM price)")
         print(f"  Target       : ₹{call['target']:,.2f}   (+{exp:.1f}%)")
         print(f"  Stop Loss    : ₹{call['stop_loss']:,.2f}   ({((call['stop_loss']/call['entry'])-1)*100:.1f}%)")
+        print(f"  R:R Ratio    : {call['reward_risk']:.1f}:1")
         print(f"  VWAP         : ₹{call['vwap']:,.2f}")
         print(f"  ORB Range    : ₹{call['orb_low']:,.2f} – ₹{call['orb_high']:,.2f}")
-        print(f"  R:R Ratio    : {call['reward_risk']:.1f}:1")
-        print(f"  Max 1-Day BT : +{call.get('bt_max_1day',0):.2f}%  (best single day in 2yr backtest)")
+        print(f"")
+        print(f"  ── Composite Score: {call.get('composite_score',0):.1f}/100 ──")
+        for k, pts in call.get("score_breakdown", {}).items():
+            bar = "█" * int(pts / 5) if pts > 0 else ""
+            print(f"    {SCORE_LABELS.get(k,k):<30} {pts:5.1f}  {bar}")
+        print(f"")
+        print(f"  Max 1-Day BT : +{call.get('bt_max_1day',0):.2f}%")
         print(f"  Backtest WR  : {call['bt_win_rate']:.1%}  |  Sharpe {call['bt_sharpe']:.2f}  |  {call['bt_strategy']}")
-        print(f"  Signals      : {call['signals_aligned']}/7 aligned  |  Confidence {int(call['confidence']*100)}%")
-        print(f"  Regime       : {call['regime']}")
+        print(f"  Signals      : {call['signals_aligned']}/7  |  Confidence {int(call['confidence']*100)}%  |  Regime {call['regime']}")
         print(f"")
 
-        # Signal breakdown
         labels_map = {
             "above_pdc":    "Above Prev Close",
             "orb":          "ORB Breakout",

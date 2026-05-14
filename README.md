@@ -24,15 +24,31 @@ A signal is only issued when at least **3 of 7 factors** are aligned in the same
 
 A **confidence score** (0–100%) and **market regime** (Trending / Range / Volatile) are also computed per stock.
 
-### Backtest Gate — Must Pass Before Any Live Signal
+### Composite Score — 6-Parameter Ranking (0–100)
 
-Every Sunday at 6 PM IST, the engine runs a **2-year daily backtest** across all 95 stocks using three strategy variants (ORB, VWAP, MOMENTUM).
+All candidates are ranked by a weighted composite score. Each factor is normalized across the candidate pool (0–1) before weighting:
 
-- A stock-strategy combo is **only eligible** if its 2-year backtest win rate is **≥ 80%**
-- Eligible combos are **ranked by maximum single-day return** — the best intraday gain ever produced by that setup in the backtest period
-- On weekdays, only stocks from the top of this ranked list are scanned for live signals
+| Factor | Weight | Description |
+|--------|--------|-------------|
+| Max 1-Day Return (BT) | 25% | Best single intraday gain in 2-year backtest |
+| Backtest Win Rate | 20% | Historical % of profitable days |
+| Sharpe Ratio | 15% | Risk-adjusted consistency |
+| Live Signal Confidence | 20% | Signals aligned ÷ 7 today |
+| Expected Return Today | 10% | Entry → target % |
+| Volume Confirmation | 10% | Current volume vs 20-day average (capped 3×) |
 
-This means no live trade is ever taken on a setup that hasn't proven itself over 2 years of daily history.
+### Backtest Gate & 4-Tier Fallback — Always One Stock Shows Up
+
+Every Sunday at 6 PM IST the engine reruns a **2-year daily backtest** (ORB / VWAP / MOMENTUM) on the 30-stock core list. Win rate threshold is **≥ 70%**. If no stock clears the bar, the engine falls through tiers until it finds the best available setup:
+
+| Tier | Conviction | Condition |
+|------|-----------|-----------|
+| **1** | HIGH | 2-yr WR ≥ 70% **and** ≥ 3/7 live signals aligned |
+| **2** | MEDIUM | 2-yr WR ≥ 70% **and** ≥ 1/7 live signals |
+| **3** | BEST MATCH | 60-day ORB backtest on all 95 stocks — best composite score |
+| **4** | EXPLORATORY | Pure live scan of all 95 stocks — no backtest filter |
+
+A call is **always issued**. The dashboard shows which tier it came from so you know how much weight to give it.
 
 ### Entry & Exit Rules
 
@@ -56,7 +72,7 @@ f* = (p × b − q) / b  ×  0.25
 
 Where `p` = backtest win rate, `q` = 1 − p, `b` = reward-to-risk ratio.
 
-When **two signals** are issued on the same day, capital is split proportionally by `confidence × max_1day_return`, with a maximum 85% total deployment (remaining 15% held as buffer).
+When **two signals** are issued on the same day, capital is split proportionally by composite score, with a maximum 85% total deployment (remaining 15% held as buffer).
 
 ---
 
