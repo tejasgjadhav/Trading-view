@@ -39,14 +39,14 @@
       },
       "allocation_note": "Single signal today. Invest \u20b97,860 (7.9% of \u20b91L) in ADANIENT.NS. Buy 3 shares @ \u20b92,620.10. Target \u20b92,672.50 (+2.0%)  |  Stop \u20b92,580.80. Keep \u20b992,140 as cash buffer. Conviction: HIGH  |  Composite score: 79.4/100.",
       "equity_start": 100000,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 2672.5,
+      "exit_time": "11:45 AM",
+      "exit_reason": "target_hit",
+      "pnl_pct": 0.15,
+      "pnl_inr": 152.0,
+      "equity_end": 100152.0,
+      "status": "closed"
     }
   ],
-  "equity": 100000
+  "equity": 100152.0
 }
