@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Signal Dashboard</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; color: #e6edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; }
+
+  header {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 18px; font-weight: 600; color: #58a6ff; }
+  #last-updated { font-size: 12px; color: #8b949e; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
+
+  /* Stats bar */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-card .label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .stat-card .value { font-size: 26px; font-weight: 700; }
+  .green { color: #3fb950; }
+  .red { color: #f85149; }
+  .blue { color: #58a6ff; }
+  .yellow { color: #d29922; }
+  .gray { color: #8b949e; }
+
+  h2 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #c9d1d9; }
+
+  /* Signal cards */
+  .signals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .signal-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .signal-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .signal-card.buy::before { background: #3fb950; }
+  .signal-card.sell::before { background: #f85149; }
+  .signal-card.hold::before { background: #8b949e; }
+
+  .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .ticker { font-size: 20px; font-weight: 700; }
+  .action-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: .5px;
+  }
+  .badge-buy { background: rgba(63,185,80,.15); color: #3fb950; border: 1px solid rgba(63,185,80,.3); }
+  .badge-sell { background: rgba(248,81,73,.15); color: #f85149; border: 1px solid rgba(248,81,73,.3); }
+  .badge-hold { background: rgba(139,148,158,.1); color: #8b949e; border: 1px solid rgba(139,148,158,.2); }
+
+  .price-row { display: flex; gap: 16px; margin-bottom: 10px; }
+  .price-row .price { font-size: 18px; font-weight: 600; }
+  .price-row .change { font-size: 13px; align-self: flex-end; margin-bottom: 2px; }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+  .metric { font-size: 12px; color: #8b949e; }
+  .metric span { color: #c9d1d9; font-weight: 500; }
+
+  /* Score bar */
+  .score-bar-wrap { margin-bottom: 10px; }
+  .score-label { font-size: 11px; color: #8b949e; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .score-bar-bg { background: #21262d; border-radius: 4px; height: 6px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+
+  /* Strategy mini votes */
+  .votes { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 8px; }
+  .vote-chip {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+  .vote-up { background: rgba(63,185,80,.15); color: #3fb950; }
+  .vote-down { background: rgba(248,81,73,.15); color: #f85149; }
+  .vote-flat { background: rgba(139,148,158,.1); color: #8b949e; }
+
+  /* Confidence ring */
+  .conf-wrap { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+  .conf-label { font-size: 11px; color: #8b949e; }
+  .conf-bar { flex: 1; height: 4px; background: #21262d; border-radius: 4px; overflow: hidden; }
+  .conf-fill { height: 100%; border-radius: 4px; background: #58a6ff; }
+
+  /* Trade log table */
+  .table-wrap { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; margin-bottom: 28px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: #21262d; }
+  th { padding: 10px 14px; text-align: left; font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: .5px; font-weight: 500; }
+  td { padding: 10px 14px; border-top: 1px solid #21262d; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+  .pnl-win { color: #3fb950; font-weight: 600; }
+  .pnl-loss { color: #f85149; font-weight: 600; }
+  .pnl-pending { color: #8b949e; }
+  .status-pill {
+    font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .status-open { background: rgba(88,166,255,.15); color: #58a6ff; }
+  .status-closed { background: rgba(139,148,158,.1); color: #8b949e; }
+  .status-filled { background: rgba(210,153,34,.15); color: #d29922; }
+
+  /* Performance summary */
+  .perf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .perf-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .perf-card .plabel { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
+  .perf-card .pval { font-size: 20px; font-weight: 700; }
+
+  .section { margin-bottom: 28px; }
+
+  .empty { text-align: center; padding: 40px; color: #8b949e; font-size: 14px; }
+  .spinner { text-align: center; padding: 60px; color: #8b949e; }
+
+  footer { text-align: center; padding: 24px; font-size: 12px; color: #484f58; border-top: 1px solid #21262d; margin-top: 24px; }
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .refresh-btn {
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .refresh-btn:hover { background: #30363d; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📈 Trading Signal Dashboard</h1>
+    <div style="font-size:12px;color:#8b949e;margin-top:3px;">
+      5-Strategy Ensemble · Turtle · MA Crossover · Momentum RSI · Breakout · Mean Reversion
+    </div>
+  </div>
+  <div style="text-align:right">
+    <button class="refresh-btn" onclick="loadAll()">↻ Refresh</button>
+    <div id="last-updated" style="margin-top:4px;">Loading...</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- TODAY'S SNAPSHOT -->
+  <div class="stats-grid" id="snapshot-bar">
+    <div class="stat-card"><div class="label">Today's Buys</div><div class="value blue" id="snap-buys">—</div></div>
+    <div class="stat-card"><div class="label">Today's Sells</div><div class="value red" id="snap-sells">—</div></div>
+    <div class="stat-card"><div class="label">Win Rate</div><div class="value green" id="snap-wr">—</div></div>
+    <div class="stat-card"><div class="label">Profit Factor</div><div class="value yellow" id="snap-pf">—</div></div>
+    <div class="stat-card"><div class="label">Open Positions</div><div class="value blue" id="snap-open">—</div></div>
+    <div class="stat-card"><div class="label">Total Calls</div><div class="value gray" id="snap-total">—</div></div>
+  </div>
+
+  <!-- TODAY'S SIGNALS -->
+  <div class="section">
+    <h2>Today's Signals <span id="signal-date" style="color:#8b949e;font-weight:400;font-size:13px;"></span></h2>
+    <div class="signals-grid" id="signals-grid"><div class="spinner">Loading signals...</div></div>
+  </div>
+
+  <!-- PERFORMANCE SUMMARY -->
+  <div class="section" id="perf-section" style="display:none">
+    <h2>Live Performance Tracker</h2>
+    <div class="perf-grid" id="perf-grid"></div>
+  </div>
+
+  <!-- TRADE LOG -->
+  <div class="section">
+    <h2>Trade Log <span style="color:#8b949e;font-weight:400;font-size:13px;">(all calls tracked)</span></h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th><th>Ticker</th><th>Action</th><th>Score</th>
+            <th>Signal Price</th><th>Entry</th><th>Exit</th><th>P&L</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="trade-log-body"><tr><td colspan="9" class="empty">Loading...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Auto-generated · <a href="https://github.com/tejasgjadhav/Trading-view" target="_blank">github.com/tejasgjadhav/Trading-view</a> ·
+  Updates 9am ET daily via GitHub Actions · For educational purposes only
+</footer>
+
+<script>
+const REPO = 'tejasgjadhav/Trading-view';
+const RAW  = `https://raw.githubusercontent.com/${REPO}/main`;
+
+async function fetchJSON(path) {
+  const r = await fetch(`${RAW}/${path}?_=${Date.now()}`);
+  if (!r.ok) throw new Error(`${path} not found`);
+  return r.json();
+}
+
+function scoreColor(s) {
+  if (s >= 0.55) return '#3fb950';
+  if (s <= -0.40) return '#f85149';
+  return '#d29922';
+}
+
+function scoreBarWidth(s) {
+  // -1 to 1 mapped to 0-100%
+  return Math.round((s + 1) / 2 * 100) + '%';
+}
+
+function stratLabel(name) {
+  const map = {
+    turtle: 'Turtle', ma_crossover: 'MA Cross',
+    momentum_rsi: 'Momentum', breakout_volume: 'Breakout', mean_reversion: 'Mean Rev'
+  };
+  return map[name] || name;
+}
+
+function renderSignalCard(s) {
+  const cls = s.action === 'BUY' ? 'buy' : s.action === 'SELL' ? 'sell' : 'hold';
+  const badgeCls = `badge-${cls}`;
+  const price = s.price ? `$${s.price.toFixed(2)}` : '—';
+  const change = s.change_pct != null
+    ? `<span class="${s.change_pct >= 0 ? 'green' : 'red'}">${s.change_pct >= 0 ? '+' : ''}${s.change_pct.toFixed(2)}%</span>`
+    : '';
+  const pct52 = s.pct_from_52w_high != null
+    ? `${s.pct_from_52w_high > 0 ? '+' : ''}${s.pct_from_52w_high.toFixed(1)}% from 52w high`
+    : '';
+
+  // Strategy votes
+  const votes = Object.entries(s.strategies || {}).map(([k, v]) => {
+    const sig = v.signal || 0;
+    const vcls = sig > 0 ? 'vote-up' : sig < 0 ? 'vote-down' : 'vote-flat';
+    const arrow = sig > 0 ? '▲' : sig < 0 ? '▼' : '─';
+    return `<span class="vote-chip ${vcls}">${arrow} ${stratLabel(k)}</span>`;
+  }).join('');
+
+  const score = (s.score || 0).toFixed(3);
+  const scoreW = scoreBarWidth(s.score || 0);
+  const scoreC = scoreColor(s.score || 0);
+  const conf = Math.round((s.confidence || 0) * 100);
+
+  return `
+  <div class="signal-card ${cls}">
+    <div class="card-header">
+      <div class="ticker">${s.ticker}</div>
+      <span class="action-badge ${badgeCls}">${s.action}</span>
+    </div>
+    <div class="price-row">
+      <div class="price">${price}</div>
+      <div class="change">${change}</div>
+    </div>
+    <div class="metrics">
+      <div class="metric">ATR <span>${s.atr_pct != null ? s.atr_pct.toFixed(1) + '%' : '—'}</span></div>
+      <div class="metric">52W <span style="font-size:11px">${pct52 || '—'}</span></div>
+      <div class="metric">Votes <span>${s.buy_votes || 0}B / ${s.sell_votes || 0}S</span></div>
+      <div class="metric">Score <span style="color:${scoreC}">${score}</span></div>
+    </div>
+    <div class="score-bar-wrap">
+      <div class="score-label"><span>Ensemble Score</span><span style="color:${scoreC}">${score}</span></div>
+      <div class="score-bar-bg"><div class="score-bar-fill" style="width:${scoreW};background:${scoreC}"></div></div>
+    </div>
+    <div class="conf-wrap">
+      <span class="conf-label">Confidence ${conf}%</span>
+      <div class="conf-bar"><div class="conf-fill" style="width:${conf}%"></div></div>
+    </div>
+    <div class="votes">${votes}</div>
+  </div>`;
+}
+
+function renderTradeLog(calls) {
+  if (!calls.length) return '<tr><td colspan="9" class="empty">No calls yet — signals appear here after first run</td></tr>';
+  return calls.slice().reverse().map(c => {
+    const pnl = c.pnl_pct != null
+      ? `<span class="${c.pnl_pct >= 0 ? 'pnl-win' : 'pnl-loss'}">${c.pnl_pct >= 0 ? '+' : ''}${c.pnl_pct.toFixed(2)}%</span>`
+      : '<span class="pnl-pending">—</span>';
+    const statusCls = c.status === 'open' ? 'status-open' : c.status === 'filled' ? 'status-filled' : 'status-closed';
+    const score = (c.score || 0).toFixed(3);
+    const scoreStyle = `color:${scoreColor(c.score || 0)}`;
+    return `<tr>
+      <td>${c.date}</td>
+      <td><strong>${c.ticker}</strong></td>
+      <td><span class="action-badge badge-${c.action.toLowerCase()}">${c.action}</span></td>
+      <td style="${scoreStyle}">${score}</td>
+      <td>${c.price_at_signal ? '$' + Number(c.price_at_signal).toFixed(2) : '—'}</td>
+      <td>${c.entry_price ? '$' + Number(c.entry_price).toFixed(2) : '—'}</td>
+      <td>${c.exit_price ? '$' + Number(c.exit_price).toFixed(2) : '—'}</td>
+      <td>${pnl}</td>
+      <td><span class="status-pill ${statusCls}">${c.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadAll() {
+  document.getElementById('last-updated').textContent = 'Refreshing...';
+
+  // Load signals
+  try {
+    const sig = await fetchJSON('results/latest_signals.json');
+    const signals = sig.signals || [];
+    const date = sig.date || '';
+
+    document.getElementById('signal-date').textContent = date;
+    document.getElementById('snap-buys').textContent = signals.filter(s => s.action === 'BUY').length;
+    document.getElementById('snap-sells').textContent = signals.filter(s => s.action === 'SELL').length;
+
+    const grid = document.getElementById('signals-grid');
+    const actionable = signals.filter(s => s.action !== 'HOLD');
+    if (actionable.length === 0) {
+      const holds = signals.slice(0, 6);
+      grid.innerHTML = holds.length
+        ? holds.map(renderSignalCard).join('')
+        : '<div class="empty">No signals yet — first run happens 9am ET on the next weekday</div>';
+    } else {
+      grid.innerHTML = actionable.map(renderSignalCard).join('');
+    }
+
+    document.getElementById('last-updated').textContent =
+      'Updated: ' + new Date(sig.timestamp || Date.now()).toLocaleString();
+  } catch(e) {
+    document.getElementById('signals-grid').innerHTML =
+      '<div class="empty">Signals will appear here after the first GitHub Actions run (9am ET weekdays)</div>';
+    document.getElementById('last-updated').textContent = 'Signals not yet generated';
+  }
+
+  // Load trade log
+  try {
+    const log = await fetchJSON('data/trade_log.json');
+    const calls = log.calls || [];
+    const summary = log.summary || {};
+    const openPos = Object.keys(log.open_positions || {}).length;
+
+    document.getElementById('trade-log-body').innerHTML = renderTradeLog(calls);
+    document.getElementById('snap-total').textContent = calls.length;
+    document.getElementById('snap-open').textContent = openPos;
+
+    if (summary.win_rate_pct !== undefined) {
+      document.getElementById('snap-wr').textContent = summary.win_rate_pct + '%';
+      document.getElementById('snap-pf').textContent = summary.profit_factor || '—';
+
+      const perfSection = document.getElementById('perf-section');
+      perfSection.style.display = '';
+      document.getElementById('perf-grid').innerHTML = [
+        { label: 'Total Return', val: (summary.total_return_pct || 0) + '%', cls: (summary.total_return_pct || 0) >= 0 ? 'green' : 'red' },
+        { label: 'Win Rate', val: (summary.win_rate_pct || 0) + '%', cls: 'green' },
+        { label: 'Avg Return', val: (summary.avg_return_pct || 0) + '%', cls: (summary.avg_return_pct || 0) >= 0 ? 'green' : 'red' },
+        { label: 'Profit Factor', val: summary.profit_factor || '—', cls: 'yellow' },
+        { label: 'Best Trade', val: (summary.best_trade_pct || 0) + '%', cls: 'green' },
+        { label: 'Worst Trade', val: (summary.worst_trade_pct || 0) + '%', cls: 'red' },
+        { label: 'Closed Trades', val: summary.closed_trades || 0, cls: 'blue' },
+        { label: 'Avg Win', val: (summary.avg_win_pct || 0) + '%', cls: 'green' },
+      ].map(p => `<div class="perf-card"><div class="plabel">${p.label}</div><div class="pval ${p.cls}">${p.val}</div></div>`).join('');
+    }
+  } catch(e) {
+    document.getElementById('trade-log-body').innerHTML =
+      '<tr><td colspan="9" class="empty">Trade log will populate after first signal run</td></tr>';
+  }
+}
+
+loadAll();
+</script>
+</body>
+</html>
