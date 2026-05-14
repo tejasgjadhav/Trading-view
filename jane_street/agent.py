@@ -1,10 +1,11 @@
 """
-Jane Street Daily Trading Agent — Main Orchestrator
+Quant Signal Engine — Main Orchestrator
 Run at 9:45 AM IST via GitHub Actions.
 
 Usage:
     python -m jane_street.agent              # run once
     python -m jane_street.agent --backtest   # backtest only
+    python -m jane_street.agent --fresh      # force fresh backtest
 """
 import argparse, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,7 +19,7 @@ from jane_street.config import CAPITAL, CALLS_PATH, REPORTS_DIR, IST
 
 def print_recommendation(rec: dict):
     print(f"\n{'='*65}")
-    print(f"  JANE STREET FINAL CALL")
+    print(f"  QUANT SIGNAL ENGINE — FINAL CALL")
     print(f"{'='*65}")
 
     if rec["action"] == "NO_TRADE":
@@ -27,50 +28,55 @@ def print_recommendation(rec: dict):
         print(f"{'='*65}")
         return
 
-    exp  = rec["expected_return"]
+    calls = rec.get("calls", [rec])
+    alloc = rec.get("allocation", {})
 
-    print(f"\n  ACTION     : {rec['action']}")
-    print(f"  STOCK      : NSE:{rec['ticker']}")
-    print(f"")
-    print(f"  BUY AT     : Rs.{rec['entry']:,.2f}   (9:45 AM price)")
-    print(f"  TARGET     : Rs.{rec['target']:,.2f}   (+{exp:.1f}%)")
-    print(f"  STOP LOSS  : Rs.{rec['stop_loss']:,.2f}   ({((rec['stop_loss']/rec['entry'])-1)*100:.1f}%)")
-    print(f"  VWAP       : Rs.{rec['vwap']:,.2f}")
-    print(f"  ORB Range  : Rs.{rec['orb_low']:,.2f} - Rs.{rec['orb_high']:,.2f}")
-    print(f"")
-    print(f"  QUANTITY   : {rec['shares']} shares")
-    print(f"  POSITION   : Rs.{rec['position_value']:,.0f}")
-    print(f"  RISK       : Rs.{rec['risk_amount']:,.0f}  ({rec['risk_pct']:.1f}% of capital)")
-    print(f"  KELLY SIZE : {rec['kelly_pct']:.1f}% of capital (25% fractional)")
-    print(f"  R:R RATIO  : {rec['reward_risk']:.1f}:1")
-    print(f"")
-    print(f"  SIGNALS    : {rec['signals_aligned']}/7 aligned")
-    print(f"  CONFIDENCE : {int(rec['confidence']*100)}%")
-    print(f"  REGIME     : {rec['regime']}")
-    print(f"  RSI        : {rec['rsi']:.1f}")
-    print(f"  VOLUME     : {rec.get('vol_ratio',0):.1f}x average")
-    print(f"")
-    print(f"  BACKTEST   : {rec['bt_win_rate']:.1%} win rate | Sharpe {rec['bt_sharpe']:.2f} | {rec['bt_strategy']}")
-    print(f"")
-    print(f"  EXIT       : {rec['exit_rule']}")
-    print(f"  KILL       : {rec['kill_switch']}")
+    for i, call in enumerate(calls):
+        label = "PRIMARY" if i == 0 else "SECONDARY"
+        exp   = call["expected_return"]
+        print(f"\n  [{label}] BUY {call['ticker']}")
+        print(f"")
+        print(f"  Entry Price  : ₹{call['entry']:,.2f}   (9:45 AM price)")
+        print(f"  Target       : ₹{call['target']:,.2f}   (+{exp:.1f}%)")
+        print(f"  Stop Loss    : ₹{call['stop_loss']:,.2f}   ({((call['stop_loss']/call['entry'])-1)*100:.1f}%)")
+        print(f"  VWAP         : ₹{call['vwap']:,.2f}")
+        print(f"  ORB Range    : ₹{call['orb_low']:,.2f} – ₹{call['orb_high']:,.2f}")
+        print(f"  R:R Ratio    : {call['reward_risk']:.1f}:1")
+        print(f"  Max 1-Day BT : +{call.get('bt_max_1day',0):.2f}%  (best single day in 2yr backtest)")
+        print(f"  Backtest WR  : {call['bt_win_rate']:.1%}  |  Sharpe {call['bt_sharpe']:.2f}  |  {call['bt_strategy']}")
+        print(f"  Signals      : {call['signals_aligned']}/7 aligned  |  Confidence {int(call['confidence']*100)}%")
+        print(f"  Regime       : {call['regime']}")
+        print(f"")
+
+        # Signal breakdown
+        labels_map = {
+            "above_pdc":    "Above Prev Close",
+            "orb":          "ORB Breakout",
+            "vwap":         "Above VWAP",
+            "rsi":          "RSI Momentum",
+            "ema_trend":    "EMA Trend",
+            "volume_spike": "Volume Spike",
+            "key_level":    "Key Level",
+        }
+        for k, v in call.get("signals_detail", {}).items():
+            icon = "[Y]" if v == 1 else ("[N]" if v == -1 else "[-]")
+            print(f"    {icon}  {labels_map.get(k, k)}")
+
+    print(f"\n{'─'*65}")
+    print(f"  ALLOCATION COMMENTARY")
+    print(f"{'─'*65}")
+    print(f"\n  {alloc.get('commentary', '')}")
+
+    if alloc.get("primary"):
+        p = alloc["primary"]
+        print(f"\n  PRIMARY   {p['ticker']:<18} ₹{p['invest_inr']:>9,.0f}  ({p['invest_pct']}%)  {p['shares']} shares")
+    if alloc.get("secondary"):
+        s = alloc["secondary"]
+        print(f"  SECONDARY {s['ticker']:<18} ₹{s['invest_inr']:>9,.0f}  ({s['invest_pct']}%)  {s['shares']} shares")
+    print(f"  CASH RESERVE            ₹{alloc.get('cash_reserve',0):>9,.0f}")
+
+    print(f"\n  EXIT RULE  : Close at target, else force-close at 2:00 PM IST (no overnight)")
     print(f"{'='*65}\n")
-
-    # Signal breakdown
-    print("  Signal breakdown:")
-    labels = {
-        "above_pdc":    "Above Prev Close",
-        "orb":          "ORB Breakout",
-        "vwap":         "Above VWAP",
-        "rsi":          "RSI",
-        "ema_trend":    "EMA Trend",
-        "volume_spike": "Volume Spike",
-        "key_level":    "Key Level",
-    }
-    for k, v in rec.get("signals_detail", {}).items():
-        icon2 = "[Y]" if v == 1 else ("[N]" if v == -1 else "[-]")
-        print(f"    {icon2}  {labels.get(k, k)}")
-    print()
 
 
 def save_to_calls_log(rec: dict):
@@ -87,48 +93,63 @@ def save_to_calls_log(rec: dict):
 
     if rec["action"] == "NO_TRADE":
         call = {
-            "date":   today, "action": "HOLD",
-            "ticker": "-",   "reason": rec["reason"],
-            "status": "hold", "equity_start": equity,
+            "date":         today,
+            "action":       "HOLD",
+            "ticker":       "-",
+            "reason":       rec["reason"],
+            "status":       "hold",
+            "equity_start": equity,
         }
+        log["calls"] = [c for c in log["calls"] if c["date"] != today]
+        log["calls"].append(call)
     else:
-        call = {
-            "date":             today,
-            "signal_time":      datetime.now(IST).strftime("%I:%M %p IST"),
-            "ticker":           rec["ticker"],
-            "action":           "BUY",
-            "entry":            rec["entry"],
-            "target":           rec["target"],
-            "stoploss":         rec["stop_loss"],
-            "expected_return":  rec["expected_return"],
-            "reward_risk":      rec["reward_risk"],
-            "shares":           rec["shares"],
-            "position_value":   rec["position_value"],
-            "risk_amount":      rec["risk_amount"],
-            "vwap":             rec["vwap"],
-            "orb_high":         rec["orb_high"],
-            "orb_low":          rec["orb_low"],
-            "rsi":              rec["rsi"],
-            "vol_ratio":        rec.get("vol_ratio"),
-            "signals_aligned":  rec["signals_aligned"],
-            "confidence":       rec["confidence"],
-            "regime":           rec["regime"],
-            "bt_win_rate":      rec["bt_win_rate"],
-            "bt_sharpe":        rec["bt_sharpe"],
-            "bt_strategy":      rec["bt_strategy"],
-            "signals_detail":   rec.get("signals_detail", {}),
-            "equity_start":     equity,
-            "exit":             None,
-            "exit_time":        None,
-            "exit_reason":      None,
-            "pnl_pct":          None,
-            "pnl_inr":          None,
-            "equity_end":       None,
-            "status":           "open",
-        }
+        calls  = rec.get("calls", [rec])
+        alloc  = rec.get("allocation", {})
+        log["calls"] = [c for c in log["calls"] if c["date"] != today]
 
-    log["calls"] = [c for c in log["calls"] if c["date"] != today]
-    log["calls"].append(call)
+        for i, r in enumerate(calls):
+            a_key = "primary" if i == 0 else "secondary"
+            a_info = alloc.get(a_key, {})
+            call = {
+                "date":             today,
+                "signal_time":      datetime.now(IST).strftime("%I:%M %p IST"),
+                "call_rank":        "primary" if i == 0 else "secondary",
+                "ticker":           r["ticker"],
+                "action":           "BUY",
+                "entry":            r["entry"],
+                "target":           r["target"],
+                "stoploss":         r["stop_loss"],
+                "expected_return":  r["expected_return"],
+                "reward_risk":      r["reward_risk"],
+                "shares":           a_info.get("shares", r["shares"]),
+                "invest_inr":       a_info.get("invest_inr", r["position_value"]),
+                "invest_pct":       a_info.get("invest_pct", r["kelly_pct"]),
+                "position_value":   r["position_value"],
+                "risk_amount":      r["risk_amount"],
+                "vwap":             r["vwap"],
+                "orb_high":         r["orb_high"],
+                "orb_low":          r["orb_low"],
+                "rsi":              r["rsi"],
+                "vol_ratio":        r.get("vol_ratio"),
+                "signals_aligned":  r["signals_aligned"],
+                "confidence":       r["confidence"],
+                "regime":           r["regime"],
+                "bt_win_rate":      r["bt_win_rate"],
+                "bt_sharpe":        r["bt_sharpe"],
+                "bt_strategy":      r["bt_strategy"],
+                "bt_max_1day":      r.get("bt_max_1day", 0),
+                "signals_detail":   r.get("signals_detail", {}),
+                "allocation_note":  alloc.get("commentary", ""),
+                "equity_start":     equity,
+                "exit":             None,
+                "exit_time":        None,
+                "exit_reason":      None,
+                "pnl_pct":          None,
+                "pnl_inr":          None,
+                "equity_end":       None,
+                "status":           "open",
+            }
+            log["calls"].append(call)
 
     os.makedirs(os.path.dirname(CALLS_PATH), exist_ok=True)
     with open(CALLS_PATH, "w") as f:
@@ -141,23 +162,29 @@ def save_to_calls_log(rec: dict):
         json.dump(rec, f, indent=2, default=str)
 
     # GitHub Actions step summary
+    alloc  = rec.get("allocation", {})
     summary = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
     with open(summary, "a") as f:
         if rec["action"] == "NO_TRADE":
-            f.write(f"## NO TRADE - {today}\n{rec['reason']}\n")
+            f.write(f"## ⏸️ NO TRADE — {today}\n{rec['reason']}\n")
         else:
-            f.write(f"## BUY: **{rec['ticker']}** @ Rs.{rec['entry']:,.2f}\n\n")
-            f.write(f"| | |\n|---|---|\n")
-            f.write(f"| **Entry** | Rs.{rec['entry']:,.2f} |\n")
-            f.write(f"| **Target** | Rs.{rec['target']:,.2f} (+{rec['expected_return']:.1f}%) |\n")
-            f.write(f"| **Stop Loss** | Rs.{rec['stop_loss']:,.2f} |\n")
-            f.write(f"| **Shares** | {rec['shares']} @ Kelly {rec['kelly_pct']:.1f}% |\n")
-            f.write(f"| **Signals** | {rec['signals_aligned']}/7 aligned |\n")
-            f.write(f"| **Confidence** | {int(rec['confidence']*100)}% |\n")
-            f.write(f"| **Backtest WR** | {rec['bt_win_rate']:.1%} |\n")
-            f.write(f"| **Sharpe** | {rec['bt_sharpe']:.2f} |\n")
-            f.write(f"\n> Exit at Rs.{rec['target']:,.2f} or force-close at 2:00 PM IST\n")
-            f.write(f"\n**Running Capital:** Rs.{equity:,.0f}\n")
+            calls = rec.get("calls", [rec])
+            for i, r in enumerate(calls):
+                label = "📈 PRIMARY" if i == 0 else "📊 SECONDARY"
+                a_key = "primary" if i == 0 else "secondary"
+                a_info = alloc.get(a_key, {})
+                f.write(f"## {label}: **{r['ticker']}** @ ₹{r['entry']:,.2f}\n\n")
+                f.write(f"| | |\n|---|---|\n")
+                f.write(f"| **Entry** | ₹{r['entry']:,.2f} |\n")
+                f.write(f"| **Target** | ₹{r['target']:,.2f} (+{r['expected_return']:.1f}%) |\n")
+                f.write(f"| **Stop Loss** | ₹{r['stop_loss']:,.2f} |\n")
+                f.write(f"| **Max 1-Day Return (BT)** | +{r.get('bt_max_1day',0):.2f}% |\n")
+                f.write(f"| **Backtest WR** | {r['bt_win_rate']:.1%} |\n")
+                f.write(f"| **Signals** | {r['signals_aligned']}/7 |\n")
+                f.write(f"| **Invest** | ₹{a_info.get('invest_inr',0):,.0f} ({a_info.get('invest_pct',0)}%) — {a_info.get('shares',0)} shares |\n")
+                f.write(f"\n")
+            f.write(f"---\n### 💰 Allocation\n{alloc.get('commentary','')}\n")
+            f.write(f"\n**Running Capital:** ₹{equity:,.0f}\n")
 
 
 def run_agent(force_fresh: bool = False):
@@ -176,12 +203,13 @@ if __name__ == "__main__":
     if args.backtest:
         from jane_street.backtest import run_all_backtests
         from jane_street.config import CASH_EQUITIES
-        print("Running 2-year backtest on all stocks...")
+        print("Running 2-year backtest on all stocks (ranking by max 1-day return)...")
         df = run_all_backtests(CASH_EQUITIES, ["ORB", "VWAP", "MOMENTUM"])
         if df.empty:
             print("No strategies passed 80% win rate threshold.")
         else:
             print(f"\n{len(df)} strategies passed:\n")
-            print(df[["ticker","strategy","win_rate","total_trades","sharpe_ratio","max_drawdown_pct","profit_factor"]].to_string(index=False))
+            cols = ["ticker","strategy","win_rate","max_1day_return","avg_win_return","total_trades","sharpe_ratio","max_drawdown_pct","profit_factor"]
+            print(df[[c for c in cols if c in df.columns]].to_string(index=False))
     else:
         run_agent(force_fresh=args.fresh)

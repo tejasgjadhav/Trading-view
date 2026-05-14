@@ -1,4 +1,4 @@
-name: Weekly Backtest (Every Sunday 6 PM IST)
+name: Weekly Backtest (Every Sunday 6 PM IST) — Max 1-Day Return
 
 on:
   schedule:
@@ -54,24 +54,27 @@ jobs:
                   trades = [t for t in res["trades"] if t["action"] != "HOLD"]
                   wins   = [t for t in trades if t["pnl_inr"] > 0]
                   wr     = len(wins)/len(trades)*100 if trades else 0
+                  pnl_pcts = [t.get("pnl_pct", 0) for t in trades]
+                  max_1day = round(max(pnl_pcts), 2) if pnl_pcts else 0
                   results.append({
-                      "ticker":       ticker,
-                      "trades":       len(trades),
-                      "win_rate":     round(wr, 1),
-                      "return_pct":   res["total_return_pct"],
-                      "final_equity": res["final_equity"],
-                      "trade_log":    res["trades"],
+                      "ticker":           ticker,
+                      "trades":           len(trades),
+                      "win_rate":         round(wr, 1),
+                      "return_pct":       res["total_return_pct"],
+                      "max_1day_return":  max_1day,
+                      "final_equity":     res["final_equity"],
+                      "trade_log":        res["trades"],
                   })
-                  print(f"  {'✓' if res['total_return_pct']>=0 else '✗'} {ticker:<20} {res['total_return_pct']:>+6.1f}%  ₹{res['final_equity']:>9,.0f}  wr={wr:.0f}%  trades={len(trades)}")
+                  print(f"  {'✓' if res['total_return_pct']>=0 else '✗'} {ticker:<20} maxDay={max_1day:>+5.1f}%  wr={wr:.0f}%  trades={len(trades)}")
               except Exception as e:
                   print(f"  ! {ticker:<20} {e}")
 
-          results.sort(key=lambda x: x["return_pct"], reverse=True)
+          results.sort(key=lambda x: x["max_1day_return"], reverse=True)
           best = results[0] if results else {}
 
           print(f"\n{'='*60}")
-          print(f"BEST: {best.get('ticker','')}  {best.get('return_pct',0):+.1f}%  ₹{best.get('final_equity',0):,.0f}")
-          print(f"Top 5: {[r['ticker'] for r in results[:5]]}")
+          print(f"BEST: {best.get('ticker','')}  MaxDay={best.get('max_1day_return',0):+.1f}%  WR={best.get('win_rate',0):.0f}%")
+          print(f"Top 5 by max 1-day return: {[r['ticker'] for r in results[:5]]}")
           print(f"{'='*60}")
 
           os.makedirs("results", exist_ok=True)
@@ -89,7 +92,7 @@ jobs:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
 
-      - name: Run Jane Street 2-year backtest
+      - name: Run 2-year strategy backtest (max 1-day return ranking)
         run: python -m jane_street.agent --backtest
         env:
           PYTHONUNBUFFERED: '1'

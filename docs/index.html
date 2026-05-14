@@ -113,6 +113,10 @@ a{color:#58a6ff;text-decoration:none}
     <div id="call-hero" class="call-hero hold">
       <div class="empty">Loading today's call...</div>
     </div>
+    <!-- Secondary call (if 2 signals today) -->
+    <div id="call-secondary" style="display:none;margin-top:12px"></div>
+    <!-- Allocation commentary box -->
+    <div id="alloc-box" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
   </section>
 
   <!-- EQUITY STATS -->
@@ -185,25 +189,26 @@ async function fetchJSON(p){
   return r.json();
 }
 
-// ─── Today's Call ────────────────────────────────────────────────────────────
-function renderCall(call){
+// ─── Build a single call card HTML ──────────────────────────────────────────
+function buildCallHTML(call, label=''){
   const a=call.action||'HOLD';
   const cls=a==='BUY'?'buy':a==='SELL'?'sell':'hold';
   const badgeCls=`badge-${cls.toLowerCase()}`;
   const ticker=call.ticker||'—';
 
-  document.getElementById('call-date').textContent=call.date?`· ${call.date}`:'';
-
   let priceBoxes='';
   if(a==='BUY'||a==='SELL'){
     const entPct=call.target&&call.entry?((call.target/call.entry-1)*100).toFixed(1):0;
     const slPct=call.stoploss&&call.entry?((1-call.stoploss/call.entry)*100).toFixed(1):0;
+    const rr=call.reward_risk?`${Number(call.reward_risk).toFixed(1)}:1`:'—';
     priceBoxes=`
       <div class="call-price-box"><div class="label">Entry</div><div class="value">₹${(call.entry||0).toLocaleString('en-IN')}</div></div>
       <div class="call-price-box"><div class="label">Target</div><div class="value green">₹${(call.target||0).toLocaleString('en-IN')}</div><div class="sub">+${entPct}%</div></div>
       <div class="call-price-box"><div class="label">Stop Loss</div><div class="value red">₹${(call.stoploss||0).toLocaleString('en-IN')}</div><div class="sub">-${slPct}%</div></div>
       <div class="call-price-box"><div class="label">VWAP</div><div class="value blue">₹${(call.vwap||0).toLocaleString('en-IN')}</div></div>
+      <div class="call-price-box"><div class="label">R:R Ratio</div><div class="value yellow">${rr}</div></div>
     `;
+    if(call.bt_max_1day!=null) priceBoxes+=`<div class="call-price-box"><div class="label">Max 1-Day (BT)</div><div class="value green">+${Number(call.bt_max_1day).toFixed(2)}%</div></div>`;
     if(call.exit){
       const exitPnl=call.pnl_pct>=0?`<span class="green">+${call.pnl_pct}%</span>`:`<span class="red">${call.pnl_pct}%</span>`;
       priceBoxes+=`<div class="call-price-box"><div class="label">Exit</div><div class="value">₹${(call.exit||0).toLocaleString('en-IN')}</div><div class="sub">${exitPnl}</div></div>`;
@@ -213,48 +218,85 @@ function renderCall(call){
   const meta=[];
   if(call.vol_ratio) meta.push(`Volume: ${Number(call.vol_ratio).toFixed(1)}x avg`);
   const orbH=call.orb_high||call.or_high, orbL=call.orb_low||call.or_low;
-  if(orbH) meta.push(`ORB: ₹${orbL}–₹${orbH}`);
+  if(orbH) meta.push(`ORB: ₹${Number(orbL).toFixed(2)}–₹${Number(orbH).toFixed(2)}`);
   if(call.signal_time) meta.push(`Signal: ${call.signal_time}`);
   if(call.exit_time) meta.push(`Closed: ${call.exit_time}`);
   if(call.regime) meta.push(`Regime: ${call.regime}`);
-  if(call.reward_risk) meta.push(`R:R ${Number(call.reward_risk).toFixed(1)}:1`);
 
-  // Jane Street signal breakdown
+  // Signal breakdown
   let signalRows='';
   if(call.signals_detail && Object.keys(call.signals_detail).length){
-    const labels={above_pdc:'Above Prev Close',orb:'ORB Breakout',vwap:'Above VWAP',rsi:'RSI Momentum',ema_trend:'EMA Trend',volume_spike:'Volume Spike',key_level:'Key Level'};
+    const lmap={above_pdc:'Above Prev Close',orb:'ORB Breakout',vwap:'Above VWAP',rsi:'RSI Momentum',ema_trend:'EMA Trend',volume_spike:'Volume Spike',key_level:'Key Level'};
     signalRows=`<div class="signal-breakdown">
       <div class="sig-title">Signal Breakdown <span style="color:#8b949e">(${call.signals_aligned||0}/7 aligned · ${call.confidence!=null?Math.round(call.confidence*100)+'% confidence':''})</span></div>
       <div class="sig-grid">${Object.entries(call.signals_detail).map(([k,v])=>{
         const icon=v===1?'✓':v===-1?'✗':'–';
-        const cls2=v===1?'sig-y':v===-1?'sig-n':'sig-neu';
-        return `<div class="sig-item ${cls2}"><span class="sig-icon">${icon}</span>${labels[k]||k}</div>`;
+        const c2=v===1?'sig-y':v===-1?'sig-n':'sig-neu';
+        return `<div class="sig-item ${c2}"><span class="sig-icon">${icon}</span>${lmap[k]||k}</div>`;
       }).join('')}</div>
     </div>`;
   }
 
-  // Jane Street extra info row
-  let jsMeta='';
-  if(call.bt_win_rate||call.bt_sharpe||call.kelly_pct||call.shares){
-    const parts=[];
-    if(call.bt_win_rate) parts.push(`Backtest WR: ${Math.round(call.bt_win_rate*100)}%`);
-    if(call.bt_sharpe) parts.push(`Sharpe: ${Number(call.bt_sharpe).toFixed(2)}`);
-    if(call.bt_strategy) parts.push(`Strategy: ${call.bt_strategy}`);
-    if(call.shares) parts.push(`Qty: ${call.shares} shares`);
-    if(call.position_value) parts.push(`Position: ₹${Math.round(call.position_value).toLocaleString('en-IN')}`);
-    jsMeta=`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`;
-  }
+  // Backtest + sizing meta row
+  const parts=[];
+  if(call.bt_win_rate) parts.push(`BT Win Rate: ${Math.round(call.bt_win_rate*100)}%`);
+  if(call.bt_sharpe) parts.push(`Sharpe: ${Number(call.bt_sharpe).toFixed(2)}`);
+  if(call.bt_strategy) parts.push(`Strategy: ${call.bt_strategy}`);
+  if(call.invest_inr) parts.push(`Invest: ₹${Math.round(call.invest_inr).toLocaleString('en-IN')} (${call.invest_pct}%)`);
+  if(call.shares) parts.push(`Qty: ${call.shares} shares`);
+  const btMeta=parts.length?`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`:'';
 
-  document.getElementById('call-hero').className=`call-hero ${cls}`;
-  document.getElementById('call-hero').innerHTML=`
-    <span class="call-badge ${badgeCls}">${a}</span>
+  const badgeLabel=label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600;letter-spacing:.5px">${label}</span>`:'';
+
+  return `
+    <span class="call-badge ${badgeCls}">${a}</span>${badgeLabel}
     <div class="call-ticker">${ticker}</div>
     <div class="call-reason">${call.reason||''}</div>
     ${priceBoxes?`<div class="call-prices">${priceBoxes}</div>`:''}
     ${meta.length?`<div class="call-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`:''}
-    ${jsMeta}
+    ${btMeta}
     ${signalRows}
   `;
+}
+
+// ─── Today's Call ────────────────────────────────────────────────────────────
+function renderCall(todayCalls){
+  // todayCalls: array of calls for today (1 or 2)
+  const primary = Array.isArray(todayCalls) ? todayCalls[0] : todayCalls;
+  const secondary = Array.isArray(todayCalls) && todayCalls.length > 1 ? todayCalls[1] : null;
+
+  document.getElementById('call-date').textContent=primary.date?`· ${primary.date}`:'';
+
+  const a=primary.action||'HOLD';
+  const cls=a==='BUY'?'buy':a==='SELL'?'sell':'hold';
+  const heroEl=document.getElementById('call-hero');
+  heroEl.className=`call-hero ${cls}`;
+  heroEl.innerHTML=buildCallHTML(primary, secondary?'PRIMARY':'');
+
+  // Secondary call
+  const secEl=document.getElementById('call-secondary');
+  if(secondary){
+    secEl.style.display='block';
+    secEl.className=`call-hero buy`;
+    secEl.innerHTML=buildCallHTML(secondary,'SECONDARY');
+  } else {
+    secEl.style.display='none';
+  }
+
+  // Allocation box
+  const allocEl=document.getElementById('alloc-box');
+  const note=primary.allocation_note||secondary?.allocation_note||'';
+  if(note && a==='BUY'){
+    allocEl.style.display='block';
+    allocEl.innerHTML=`
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">
+        Capital Allocation Commentary
+      </div>
+      <div style="font-size:13px;color:#c9d1d9;line-height:1.6">${note.replace(/►/g,'<br>►').replace(/^<br>/,'')}</div>
+    `;
+  } else {
+    allocEl.style.display='none';
+  }
 }
 
 // ─── Stats ───────────────────────────────────────────────────────────────────
@@ -418,35 +460,40 @@ function renderBacktest(bt){
     grid.innerHTML='<div class="empty">Backtest data loading...</div>';
     return;
   }
-  const best=bt.best;
-  grid.innerHTML=bt.results.map(r=>{
+  const sorted=[...bt.results].sort((a,b)=>(b.max_1day_return||b.return_pct||0)-(a.max_1day_return||a.return_pct||0));
+  const best=sorted[0]?.ticker;
+  grid.innerHTML=sorted.map(r=>{
     const isBest=r.ticker===best;
-    const retCls=r.return_pct>=0?'green':'red';
+    const max1d=r.max_1day_return!=null?r.max_1day_return:r.return_pct;
+    const retCls=max1d>=0?'green':'red';
     return `<div class="bt-card">
       <div class="bt-ticker">${r.ticker.replace('.NS','')} ${isBest?`<span class="best-badge">★ BEST</span>`:''}
       </div>
-      <div class="bt-row"><span class="k">60-day Return</span><span class="v ${retCls}">${r.return_pct>=0?'+':''}${r.return_pct}%</span></div>
-      <div class="bt-row"><span class="k">₹1L becomes</span><span class="v">₹${Number(r.final_equity).toLocaleString('en-IN')}</span></div>
+      <div class="bt-row"><span class="k">Max 1-Day Return</span><span class="v ${retCls}">${max1d>=0?'+':''}${Number(max1d).toFixed(2)}%</span></div>
       <div class="bt-row"><span class="k">Win Rate</span><span class="v">${Math.round(r.win_rate)}%</span></div>
       <div class="bt-row"><span class="k">Trades (60d)</span><span class="v">${r.trades}</span></div>
+      ${r.return_pct!=null?`<div class="bt-row"><span class="k">60d Total Return</span><span class="v">${r.return_pct>=0?'+':''}${r.return_pct}%</span></div>`:''}
     </div>`;
   }).join('');
 }
 
 // ─── Main loader ─────────────────────────────────────────────────────────────
 async function loadAll(){
-  // Today's call
   try{
     const dc=await fetchJSON('data/daily_calls.json');
     const calls=dc.calls||[];
     const equity=dc.equity||100000;
     const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
-    const todayCall=calls.find(c=>c.date===today)||calls[calls.length-1]||{action:'HOLD',reason:'No call yet — signal runs at 9:45 AM IST on weekdays',ticker:'—'};
-    renderCall(todayCall);
+
+    // Group today's calls (may be 2 if dual-signal day)
+    const todayCalls=calls.filter(c=>c.date===today);
+    const displayCalls=todayCalls.length>0?todayCalls:
+      (calls.length>0?[calls[calls.length-1]]:[{action:'HOLD',reason:'No call yet — signal runs at 9:45 AM IST on weekdays',ticker:'—'}]);
+
+    renderCall(displayCalls);
     renderStats(calls,equity);
     renderTradeLog(calls);
 
-    // Load backtest for chart
     try{
       const bt=await fetchJSON('results/intraday_backtest.json');
       renderBacktest(bt);

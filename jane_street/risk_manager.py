@@ -1,6 +1,6 @@
 """
 Risk Manager — Kelly sizing, daily loss limits.
-Jane Street principle: position SIZING is the strategy.
+Core principle: position SIZING is the strategy.
 """
 import math
 from jane_street.config import (

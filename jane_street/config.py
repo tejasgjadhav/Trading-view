@@ -1,5 +1,5 @@
 """
-Jane Street Trading Agent — Master Config
+Quant Signal Engine — Master Config
 Edit ONLY this file to change behavior.
 """
 import pytz
@@ -64,4 +64,4 @@ ONLY_BUY = True   # Never short, never puts
 # --- PATHS ---
 CALLS_PATH   = "data/daily_calls.json"
 REPORTS_DIR  = "reports"
-BT_CACHE_PATH = "results/jane_backtest_cache.json"
+BT_CACHE_PATH = "results/quant_backtest_cache.json"

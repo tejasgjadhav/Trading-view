@@ -4,6 +4,7 @@
 Runs BEFORE any live recommendation.
 If win rate < 80% → agent does NOT trade today.
 Strategies backtested: ORB, VWAP, MOMENTUM
+Key metric: max_1day_return — best single intraday gain in backtest.
 Saves reports/backtest_TICKER_STRATEGY_DATE.csv
 """
 import os, json, warnings
@@ -17,6 +18,9 @@ from jane_street.config import (
     COMMISSION_PER_TRADE, SLIPPAGE_PERCENT,
     MIN_REWARD_RISK, ONLY_BUY, BT_CACHE_PATH, REPORTS_DIR
 )
+
+# Rank by max 1-day return (best single-day gain the stock ever gave us)
+SORT_COLUMN = "max_1day_return"
 
 
 def run_backtest(ticker: str, strategy: str = "ORB") -> dict:
@@ -159,6 +163,9 @@ def run_backtest(ticker: str, strategy: str = "ORB") -> dict:
     daily_ret    = eq_s.pct_change().dropna()
     sharpe       = float(daily_ret.mean() / daily_ret.std() * (252 ** 0.5)) if daily_ret.std() > 0 else 0
 
+    max_1day = round(float(df_t["pnl_pct"].max()), 3) if len(df_t) > 0 else 0
+    avg_win_return = round(float(wins["pnl_pct"].mean()), 3) if len(wins) > 0 else 0
+
     result = {
         "ticker":               ticker,
         "strategy":             strategy,
@@ -167,6 +174,8 @@ def run_backtest(ticker: str, strategy: str = "ORB") -> dict:
         "wins":                 len(wins),
         "losses":               len(losses),
         "avg_return_pct":       round(float(df_t["pnl_pct"].mean()), 3),
+        "max_1day_return":      max_1day,           # Best single-day % gain
+        "avg_win_return":       avg_win_return,      # Average winning day %
         "max_drawdown_pct":     round(max_dd, 2),
         "sharpe_ratio":         round(sharpe, 3),
         "profit_factor":        round(pf, 2),
@@ -197,7 +206,7 @@ def run_all_backtests(tickers: list, strategies: list = ["ORB", "VWAP", "MOMENTU
         return pd.DataFrame()
 
     df_r = pd.DataFrame(results)
-    df_r = df_r[df_r["passed"] == True].sort_values("sharpe_ratio", ascending=False)
+    df_r = df_r[df_r["passed"] == True].sort_values(SORT_COLUMN, ascending=False)
     return df_r
 
 
@@ -222,7 +231,7 @@ def load_or_run_backtest(tickers: list, force_fresh: bool = False) -> pd.DataFra
         except:
             pass
 
-    print(f"  [BACKTEST] Running fresh 2-year backtest on {len(tickers)} stocks × 3 strategies...")
+    print(f"  [BACKTEST] Running fresh 2-year backtest on {len(tickers)} stocks × 3 strategies (ranking by max 1-day return)...")
     df = run_all_backtests(tickers, ["ORB", "VWAP", "MOMENTUM"])
 
     # Cache results
