@@ -33,15 +33,15 @@ jobs:
           sys.path.insert(0, '.')
           import yfinance as yf, pandas as pd, numpy as np, pytz
           from strategies.intraday import backtest_orb_intraday
-          from live.intraday_morning import INTRADAY_WATCHLIST
+          from engine.config import WATCHLIST
 
           IST = pytz.timezone("Asia/Kolkata")
           CAPITAL = 100_000
           results = []
 
-          print(f"Backtesting {len(INTRADAY_WATCHLIST)} stocks × 60 days of 5-min data...\n")
+          print(f"Backtesting {len(WATCHLIST)} stocks × 60 days of 5-min data...\n")
 
-          for ticker in INTRADAY_WATCHLIST:
+          for ticker in WATCHLIST:
               try:
                   df = yf.download(ticker, period="60d", interval="5m", auto_adjust=True, progress=False)
                   if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
@@ -93,7 +93,7 @@ jobs:
           TZ: 'Asia/Kolkata'
 
       - name: Run 2-year strategy backtest (max 1-day return ranking)
-        run: python -m jane_street.agent --backtest
+        run: python -m engine.agent --backtest
         env:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
@@ -102,7 +102,7 @@ jobs:
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
-          git add results/intraday_backtest.json
+          git add results/intraday_backtest.json results/quant_backtest_cache.json || true
           git diff --staged --quiet || git commit -m "📊 Weekly backtest — $(date '+%d %b %Y')"
           git push
         env:

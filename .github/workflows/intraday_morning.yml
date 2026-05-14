@@ -1,8 +1,8 @@
-name: "9:45 AM — Intraday Signal (ORB + VWAP)"
+name: "9:45 AM — Intraday Signal"
 
 on:
   schedule:
-    # 9:45 AM IST = 04:15 UTC  (Mon–Fri, NSE trading days)
+    # 9:45 AM IST = 04:15 UTC  (Mon–Fri)
     - cron: '15 4 * * 1-5'
   workflow_dispatch:
 
@@ -12,7 +12,7 @@ permissions:
 jobs:
   morning-signal:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v4
@@ -24,23 +24,19 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Generate 9:45 AM intraday call
-        run: python -m jane_street.agent
+      - name: Generate 9:45 AM intraday signal
+        run: python -m engine.agent
         env:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
-
-      - name: Update dashboard report
-        run: python main.py report
-        env:
-          TZ: 'Asia/Kolkata'
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
 
       - name: Commit call to repo
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
-          git add data/daily_calls.json reports/ README.md
-          git diff --staged --quiet || git commit -m "📊 Intraday call — $(date '+%d %b %Y %H:%M IST' --date='TZ=\"Asia/Kolkata\" now')"
+          git add data/daily_calls.json
+          git diff --staged --quiet || git commit -m "📊 Signal — $(TZ=Asia/Kolkata date '+%d %b %Y %H:%M IST')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

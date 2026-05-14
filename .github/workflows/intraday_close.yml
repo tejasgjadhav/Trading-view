@@ -30,17 +30,12 @@ jobs:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
 
-      - name: Refresh dashboard
-        run: python main.py report
-        env:
-          TZ: 'Asia/Kolkata'
-
       - name: Commit P&L to repo
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
-          git add data/daily_calls.json reports/ README.md
-          git diff --staged --quiet || git commit -m "💰 EOD P&L — $(date '+%d %b %Y')"
+          git add data/daily_calls.json
+          git diff --staged --quiet || git commit -m "💰 EOD P&L — $(TZ=Asia/Kolkata date '+%d %b %Y')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
