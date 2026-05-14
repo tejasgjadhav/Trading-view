@@ -1,0 +1,15 @@
+{
+  "daily": [
+    {
+      "date": "2026-05-14",
+      "timestamp": "2026-05-14T02:37:59.158364Z",
+      "signals_generated": 19,
+      "buy_signals": 0,
+      "sell_signals": 0,
+      "hold_signals": 19,
+      "open_positions": 0,
+      "summary": {}
+    }
+  ],
+  "overall": {}
+}

@@ -1,0 +1,130 @@
+{
+  "run_date": "2026-05-14",
+  "period_years": 3,
+  "tickers": [
+    "AAPL"
+  ],
+  "results": {
+    "AAPL": {
+      "turtle": {
+        "total_return_pct": 3.57,
+        "cagr_pct": 1.18,
+        "sharpe_ratio": -2.887,
+        "sortino_ratio": -4.336,
+        "calmar_ratio": 0.963,
+        "max_drawdown_pct": -1.22,
+        "volatility_pct": 1.32,
+        "total_trades": 14,
+        "win_rate_pct": 64.3,
+        "avg_win_pct": 2.56,
+        "profit_factor": 3.1,
+        "expectancy_usd": 254.69,
+        "best_trade_pct": 19.72,
+        "worst_trade_pct": -5.03,
+        "avg_holding_days": 28,
+        "exit_reasons": {
+          "signal": 2,
+          "stop_loss": 10,
+          "take_profit": 1,
+          "end_of_period": 1
+        },
+        "initial_capital": 100000,
+        "final_equity": 103565.58
+      },
+      "ma_crossover": {
+        "total_return_pct": 2.45,
+        "cagr_pct": 0.81,
+        "sharpe_ratio": -4.687,
+        "sortino_ratio": -7.452,
+        "calmar_ratio": 0.51,
+        "max_drawdown_pct": -1.59,
+        "volatility_pct": 0.89,
+        "total_trades": 6,
+        "win_rate_pct": 50.0,
+        "avg_win_pct": 4.1,
+        "profit_factor": 3.12,
+        "expectancy_usd": 408.57,
+        "best_trade_pct": 19.72,
+        "worst_trade_pct": -4.38,
+        "avg_holding_days": 21,
+        "exit_reasons": {
+          "take_profit": 1,
+          "stop_loss": 4,
+          "end_of_period": 1
+        },
+        "initial_capital": 100000,
+        "final_equity": 102451.39
+      },
+      "momentum_rsi": {
+        "total_return_pct": -0.51,
+        "cagr_pct": -0.17,
+        "sharpe_ratio": -8.204,
+        "sortino_ratio": -10.256,
+        "calmar_ratio": -0.124,
+        "max_drawdown_pct": -1.36,
+        "volatility_pct": 0.63,
+        "total_trades": 11,
+        "win_rate_pct": 36.4,
+        "avg_win_pct": -0.46,
+        "profit_factor": 0.73,
+        "expectancy_usd": -45.97,
+        "best_trade_pct": 4.8,
+        "worst_trade_pct": -4.16,
+        "avg_holding_days": 7,
+        "exit_reasons": {
+          "signal": 6,
+          "stop_loss": 5
+        },
+        "initial_capital": 100000,
+        "final_equity": 99494.37
+      },
+      "breakout_volume": {
+        "total_return_pct": 0.99,
+        "cagr_pct": 0.33,
+        "sharpe_ratio": -7.33,
+        "sortino_ratio": -11.639,
+        "calmar_ratio": 0.394,
+        "max_drawdown_pct": -0.84,
+        "volatility_pct": 0.64,
+        "total_trades": 5,
+        "win_rate_pct": 80.0,
+        "avg_win_pct": 2.01,
+        "profit_factor": 4.15,
+        "expectancy_usd": 198.73,
+        "best_trade_pct": 6.47,
+        "worst_trade_pct": -3.2,
+        "avg_holding_days": 20,
+        "exit_reasons": {
+          "stop_loss": 3,
+          "signal": 1,
+          "end_of_period": 1
+        },
+        "initial_capital": 100000,
+        "final_equity": 100993.65
+      },
+      "mean_reversion": {
+        "total_return_pct": 1.35,
+        "cagr_pct": 0.45,
+        "sharpe_ratio": -3.945,
+        "sortino_ratio": -5.187,
+        "calmar_ratio": 0.302,
+        "max_drawdown_pct": -1.49,
+        "volatility_pct": 1.15,
+        "total_trades": 13,
+        "win_rate_pct": 46.2,
+        "avg_win_pct": 1.06,
+        "profit_factor": 1.7,
+        "expectancy_usd": 103.98,
+        "best_trade_pct": 11.32,
+        "worst_trade_pct": -4.07,
+        "avg_holding_days": 13,
+        "exit_reasons": {
+          "stop_loss": 10,
+          "signal": 3
+        },
+        "initial_capital": 100000,
+        "final_equity": 101351.71
+      }
+    }
+  }
+}

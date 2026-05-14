@@ -1,0 +1,89 @@
+name: Weekly Backtest & Performance Report
+
+on:
+  schedule:
+    # Every Sunday at 6:00 PM ET (23:00 UTC) — after market week ends
+    - cron: '0 23 * * 0'
+  workflow_dispatch:
+    inputs:
+      ticker:
+        description: 'Specific ticker to backtest (leave empty for full watchlist)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run full backtest
+        run: |
+          TICKER="${{ github.event.inputs.ticker }}"
+          if [ -n "$TICKER" ]; then
+            python main.py backtest "$TICKER"
+          else
+            python main.py backtest
+          fi
+        env:
+          PYTHONUNBUFFERED: '1'
+
+      - name: Generate performance report
+        run: python main.py report
+
+      - name: Commit backtest results
+        run: |
+          git config user.name "Trading Bot"
+          git config user.email "trading-bot@github.com"
+          git add results/ reports/ README.md data/
+          git diff --staged --quiet || git commit -m "📈 Weekly backtest — $(date '+%Y-%m-%d')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload backtest results
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-results-${{ github.run_id }}
+          path: |
+            results/backtest_results.json
+            reports/daily_report.md
+          retention-days: 365
+
+  check-positions:
+    runs-on: ubuntu-latest
+    needs: backtest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check open position P&L
+        run: python main.py summary
+        env:
+          PYTHONUNBUFFERED: '1'
