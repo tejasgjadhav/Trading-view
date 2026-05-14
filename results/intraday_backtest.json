@@ -1,11 +1,200 @@
 {
   "results": [
     {
-      "ticker": "RELIANCE.NS",
+      "ticker": "MPHASIS.NS",
+      "trades": 5,
+      "win_rate": 100.0,
+      "return_pct": 5.5,
+      "final_equity": 105499.0
+    },
+    {
+      "ticker": "ADANIGREEN.NS",
+      "trades": 8,
+      "win_rate": 87.5,
+      "return_pct": 4.85,
+      "final_equity": 104854.0
+    },
+    {
+      "ticker": "TATACONSUM.NS",
+      "trades": 9,
+      "win_rate": 77.8,
+      "return_pct": 4.22,
+      "final_equity": 104216.0
+    },
+    {
+      "ticker": "M&M.NS",
+      "trades": 7,
+      "win_rate": 85.7,
+      "return_pct": 3.87,
+      "final_equity": 103868.0
+    },
+    {
+      "ticker": "ADANIENT.NS",
+      "trades": 10,
+      "win_rate": 70.0,
+      "return_pct": 3.7,
+      "final_equity": 103695.0
+    },
+    {
+      "ticker": "ITC.NS",
       "trades": 6,
-      "win_rate": 66.66666666666666,
-      "return_pct": 0.1,
-      "final_equity": 100098.0
+      "win_rate": 100.0,
+      "return_pct": 3.59,
+      "final_equity": 103593.0
+    },
+    {
+      "ticker": "INFY.NS",
+      "trades": 9,
+      "win_rate": 55.6,
+      "return_pct": 3.29,
+      "final_equity": 103292.0
+    },
+    {
+      "ticker": "CIPLA.NS",
+      "trades": 9,
+      "win_rate": 66.7,
+      "return_pct": 3.23,
+      "final_equity": 103234.0
+    },
+    {
+      "ticker": "VEDL.NS",
+      "trades": 6,
+      "win_rate": 83.3,
+      "return_pct": 3.02,
+      "final_equity": 103020.0
+    },
+    {
+      "ticker": "DRREDDY.NS",
+      "trades": 6,
+      "win_rate": 66.7,
+      "return_pct": 2.8,
+      "final_equity": 102801.0
+    },
+    {
+      "ticker": "HCLTECH.NS",
+      "trades": 7,
+      "win_rate": 57.1,
+      "return_pct": 2.4,
+      "final_equity": 102398.0
+    },
+    {
+      "ticker": "MUTHOOTFIN.NS",
+      "trades": 7,
+      "win_rate": 71.4,
+      "return_pct": 2.34,
+      "final_equity": 102337.0
+    },
+    {
+      "ticker": "BAJFINANCE.NS",
+      "trades": 12,
+      "win_rate": 75.0,
+      "return_pct": 2.29,
+      "final_equity": 102294.0
+    },
+    {
+      "ticker": "TATAPOWER.NS",
+      "trades": 7,
+      "win_rate": 71.4,
+      "return_pct": 2.28,
+      "final_equity": 102284.0
+    },
+    {
+      "ticker": "PNB.NS",
+      "trades": 8,
+      "win_rate": 62.5,
+      "return_pct": 2.11,
+      "final_equity": 102114.0
+    },
+    {
+      "ticker": "FEDERALBNK.NS",
+      "trades": 10,
+      "win_rate": 70.0,
+      "return_pct": 1.92,
+      "final_equity": 101915.0
+    },
+    {
+      "ticker": "LT.NS",
+      "trades": 9,
+      "win_rate": 66.7,
+      "return_pct": 1.92,
+      "final_equity": 101920.0
+    },
+    {
+      "ticker": "AXISBANK.NS",
+      "trades": 5,
+      "win_rate": 80.0,
+      "return_pct": 1.7,
+      "final_equity": 101703.0
+    },
+    {
+      "ticker": "OFSS.NS",
+      "trades": 10,
+      "win_rate": 70.0,
+      "return_pct": 1.59,
+      "final_equity": 101594.0
+    },
+    {
+      "ticker": "BRITANNIA.NS",
+      "trades": 6,
+      "win_rate": 83.3,
+      "return_pct": 1.48,
+      "final_equity": 101476.0
+    },
+    {
+      "ticker": "ASHOKLEY.NS",
+      "trades": 5,
+      "win_rate": 80.0,
+      "return_pct": 1.47,
+      "final_equity": 101473.0
+    },
+    {
+      "ticker": "SIEMENS.NS",
+      "trades": 10,
+      "win_rate": 60.0,
+      "return_pct": 1.44,
+      "final_equity": 101437.0
+    },
+    {
+      "ticker": "DABUR.NS",
+      "trades": 11,
+      "win_rate": 63.6,
+      "return_pct": 1.39,
+      "final_equity": 101386.0
+    },
+    {
+      "ticker": "HINDALCO.NS",
+      "trades": 5,
+      "win_rate": 60.0,
+      "return_pct": 1.26,
+      "final_equity": 101263.0
+    },
+    {
+      "ticker": "POLYCAB.NS",
+      "trades": 9,
+      "win_rate": 66.7,
+      "return_pct": 1.24,
+      "final_equity": 101235.0
+    },
+    {
+      "ticker": "DIVISLAB.NS",
+      "trades": 11,
+      "win_rate": 72.7,
+      "return_pct": 1.17,
+      "final_equity": 101169.0
+    },
+    {
+      "ticker": "COFORGE.NS",
+      "trades": 3,
+      "win_rate": 66.7,
+      "return_pct": 0.99,
+      "final_equity": 100994.0
+    },
+    {
+      "ticker": "HDFCLIFE.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": 0.89,
+      "final_equity": 100891.0
     },
     {
       "ticker": "TCS.NS",
@@ -15,11 +204,74 @@
       "final_equity": 100731.0
     },
     {
-      "ticker": "INFY.NS",
-      "trades": 9,
-      "win_rate": 55.55555555555556,
-      "return_pct": 3.29,
-      "final_equity": 103292.0
+      "ticker": "TECHM.NS",
+      "trades": 13,
+      "win_rate": 53.8,
+      "return_pct": 0.6,
+      "final_equity": 100602.0
+    },
+    {
+      "ticker": "ADANIPORTS.NS",
+      "trades": 6,
+      "win_rate": 66.7,
+      "return_pct": 0.6,
+      "final_equity": 100600.0
+    },
+    {
+      "ticker": "ASIANPAINT.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": 0.54,
+      "final_equity": 100543.0
+    },
+    {
+      "ticker": "GODREJCP.NS",
+      "trades": 7,
+      "win_rate": 57.1,
+      "return_pct": 0.46,
+      "final_equity": 100457.0
+    },
+    {
+      "ticker": "NTPC.NS",
+      "trades": 11,
+      "win_rate": 63.6,
+      "return_pct": 0.35,
+      "final_equity": 100348.0
+    },
+    {
+      "ticker": "KOTAKBANK.NS",
+      "trades": 4,
+      "win_rate": 75.0,
+      "return_pct": 0.25,
+      "final_equity": 100252.0
+    },
+    {
+      "ticker": "POWERGRID.NS",
+      "trades": 4,
+      "win_rate": 50.0,
+      "return_pct": 0.24,
+      "final_equity": 100237.0
+    },
+    {
+      "ticker": "ICICIBANK.NS",
+      "trades": 2,
+      "win_rate": 50.0,
+      "return_pct": 0.1,
+      "final_equity": 100099.0
+    },
+    {
+      "ticker": "RELIANCE.NS",
+      "trades": 6,
+      "win_rate": 66.7,
+      "return_pct": 0.1,
+      "final_equity": 100098.0
+    },
+    {
+      "ticker": "JUBLFOOD.NS",
+      "trades": 6,
+      "win_rate": 33.3,
+      "return_pct": 0.09,
+      "final_equity": 100090.0
     },
     {
       "ticker": "HDFCBANK.NS",
@@ -29,11 +281,319 @@
       "final_equity": 100082.0
     },
     {
+      "ticker": "ACC.NS",
+      "trades": 4,
+      "win_rate": 50.0,
+      "return_pct": -0.01,
+      "final_equity": 99988.0
+    },
+    {
       "ticker": "SBIN.NS",
       "trades": 6,
       "win_rate": 50.0,
       "return_pct": -0.06,
       "final_equity": 99940.0
+    },
+    {
+      "ticker": "NMDC.NS",
+      "trades": 5,
+      "win_rate": 60.0,
+      "return_pct": -0.06,
+      "final_equity": 99939.0
+    },
+    {
+      "ticker": "ZYDUSLIFE.NS",
+      "trades": 10,
+      "win_rate": 60.0,
+      "return_pct": -0.06,
+      "final_equity": 99938.0
+    },
+    {
+      "ticker": "HEROMOTOCO.NS",
+      "trades": 8,
+      "win_rate": 50.0,
+      "return_pct": -0.07,
+      "final_equity": 99929.0
+    },
+    {
+      "ticker": "APOLLOHOSP.NS",
+      "trades": 8,
+      "win_rate": 37.5,
+      "return_pct": -0.19,
+      "final_equity": 99813.0
+    },
+    {
+      "ticker": "MARICO.NS",
+      "trades": 5,
+      "win_rate": 60.0,
+      "return_pct": -0.2,
+      "final_equity": 99801.0
+    },
+    {
+      "ticker": "WIPRO.NS",
+      "trades": 6,
+      "win_rate": 33.3,
+      "return_pct": -0.21,
+      "final_equity": 99787.0
+    },
+    {
+      "ticker": "MARUTI.NS",
+      "trades": 11,
+      "win_rate": 45.5,
+      "return_pct": -0.26,
+      "final_equity": 99739.0
+    },
+    {
+      "ticker": "DMART.NS",
+      "trades": 2,
+      "win_rate": 50.0,
+      "return_pct": -0.34,
+      "final_equity": 99661.0
+    },
+    {
+      "ticker": "IDFCFIRSTB.NS",
+      "trades": 5,
+      "win_rate": 60.0,
+      "return_pct": -0.4,
+      "final_equity": 99601.0
+    },
+    {
+      "ticker": "GODREJPROP.NS",
+      "trades": 1,
+      "win_rate": 0.0,
+      "return_pct": -0.42,
+      "final_equity": 99584.0
+    },
+    {
+      "ticker": "INDUSINDBK.NS",
+      "trades": 9,
+      "win_rate": 66.7,
+      "return_pct": -0.49,
+      "final_equity": 99508.0
+    },
+    {
+      "ticker": "BAJAJFINSV.NS",
+      "trades": 5,
+      "win_rate": 40.0,
+      "return_pct": -0.66,
+      "final_equity": 99339.0
+    },
+    {
+      "ticker": "NAUKRI.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": -0.67,
+      "final_equity": 99330.0
+    },
+    {
+      "ticker": "JSWSTEEL.NS",
+      "trades": 11,
+      "win_rate": 54.5,
+      "return_pct": -0.75,
+      "final_equity": 99246.0
+    },
+    {
+      "ticker": "TATASTEEL.NS",
+      "trades": 5,
+      "win_rate": 40.0,
+      "return_pct": -0.78,
+      "final_equity": 99217.0
+    },
+    {
+      "ticker": "BHEL.NS",
+      "trades": 3,
+      "win_rate": 33.3,
+      "return_pct": -0.83,
+      "final_equity": 99170.0
+    },
+    {
+      "ticker": "IOC.NS",
+      "trades": 5,
+      "win_rate": 40.0,
+      "return_pct": -0.9,
+      "final_equity": 99100.0
+    },
+    {
+      "ticker": "ULTRACEMCO.NS",
+      "trades": 5,
+      "win_rate": 60.0,
+      "return_pct": -0.93,
+      "final_equity": 99070.0
+    },
+    {
+      "ticker": "BANKBARODA.NS",
+      "trades": 6,
+      "win_rate": 33.3,
+      "return_pct": -1.23,
+      "final_equity": 98775.0
+    },
+    {
+      "ticker": "ABB.NS",
+      "trades": 8,
+      "win_rate": 50.0,
+      "return_pct": -1.23,
+      "final_equity": 98771.0
+    },
+    {
+      "ticker": "TITAN.NS",
+      "trades": 9,
+      "win_rate": 44.4,
+      "return_pct": -1.25,
+      "final_equity": 98747.0
+    },
+    {
+      "ticker": "GRASIM.NS",
+      "trades": 4,
+      "win_rate": 50.0,
+      "return_pct": -1.31,
+      "final_equity": 98690.0
+    },
+    {
+      "ticker": "ONGC.NS",
+      "trades": 5,
+      "win_rate": 40.0,
+      "return_pct": -1.34,
+      "final_equity": 98658.0
+    },
+    {
+      "ticker": "BAJAJ-AUTO.NS",
+      "trades": 7,
+      "win_rate": 57.1,
+      "return_pct": -1.4,
+      "final_equity": 98603.0
+    },
+    {
+      "ticker": "SAIL.NS",
+      "trades": 5,
+      "win_rate": 40.0,
+      "return_pct": -1.44,
+      "final_equity": 98561.0
+    },
+    {
+      "ticker": "PFC.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": -1.73,
+      "final_equity": 98271.0
+    },
+    {
+      "ticker": "TRENT.NS",
+      "trades": 7,
+      "win_rate": 42.9,
+      "return_pct": -1.73,
+      "final_equity": 98274.0
+    },
+    {
+      "ticker": "HAVELLS.NS",
+      "trades": 11,
+      "win_rate": 54.5,
+      "return_pct": -1.79,
+      "final_equity": 98211.0
+    },
+    {
+      "ticker": "RECLTD.NS",
+      "trades": 8,
+      "win_rate": 37.5,
+      "return_pct": -1.81,
+      "final_equity": 98190.0
+    },
+    {
+      "ticker": "HINDUNILVR.NS",
+      "trades": 11,
+      "win_rate": 36.4,
+      "return_pct": -1.95,
+      "final_equity": 98055.0
+    },
+    {
+      "ticker": "INDIGO.NS",
+      "trades": 7,
+      "win_rate": 28.6,
+      "return_pct": -1.97,
+      "final_equity": 98033.0
+    },
+    {
+      "ticker": "COALINDIA.NS",
+      "trades": 3,
+      "win_rate": 0.0,
+      "return_pct": -1.98,
+      "final_equity": 98019.0
+    },
+    {
+      "ticker": "IRFC.NS",
+      "trades": 4,
+      "win_rate": 25.0,
+      "return_pct": -2.02,
+      "final_equity": 97975.0
+    },
+    {
+      "ticker": "SBILIFE.NS",
+      "trades": 6,
+      "win_rate": 50.0,
+      "return_pct": -2.08,
+      "final_equity": 97919.0
+    },
+    {
+      "ticker": "SUNPHARMA.NS",
+      "trades": 10,
+      "win_rate": 40.0,
+      "return_pct": -2.11,
+      "final_equity": 97887.0
+    },
+    {
+      "ticker": "TORNTPHARM.NS",
+      "trades": 11,
+      "win_rate": 45.5,
+      "return_pct": -2.15,
+      "final_equity": 97852.0
+    },
+    {
+      "ticker": "PIDILITIND.NS",
+      "trades": 11,
+      "win_rate": 36.4,
+      "return_pct": -2.3,
+      "final_equity": 97699.0
+    },
+    {
+      "ticker": "LUPIN.NS",
+      "trades": 10,
+      "win_rate": 50.0,
+      "return_pct": -2.52,
+      "final_equity": 97484.0
+    },
+    {
+      "ticker": "DLF.NS",
+      "trades": 6,
+      "win_rate": 33.3,
+      "return_pct": -2.6,
+      "final_equity": 97397.0
+    },
+    {
+      "ticker": "VOLTAS.NS",
+      "trades": 12,
+      "win_rate": 41.7,
+      "return_pct": -2.81,
+      "final_equity": 97191.0
+    },
+    {
+      "ticker": "PERSISTENT.NS",
+      "trades": 12,
+      "win_rate": 25.0,
+      "return_pct": -3.03,
+      "final_equity": 96965.0
+    },
+    {
+      "ticker": "EICHERMOT.NS",
+      "trades": 11,
+      "win_rate": 36.4,
+      "return_pct": -3.16,
+      "final_equity": 96838.0
+    },
+    {
+      "ticker": "UNIONBANK.NS",
+      "trades": 8,
+      "win_rate": 25.0,
+      "return_pct": -3.23,
+      "final_equity": 96768.0
     },
     {
       "ticker": "BHARTIARTL.NS",
@@ -43,14 +603,63 @@
       "final_equity": 96764.0
     },
     {
-      "ticker": "BAJFINANCE.NS",
-      "trades": 12,
-      "win_rate": 75.0,
-      "return_pct": 2.29,
-      "final_equity": 102294.0
+      "ticker": "SHRIRAMFIN.NS",
+      "trades": 8,
+      "win_rate": 37.5,
+      "return_pct": -3.47,
+      "final_equity": 96530.0
+    },
+    {
+      "ticker": "AUROPHARMA.NS",
+      "trades": 4,
+      "win_rate": 25.0,
+      "return_pct": -3.71,
+      "final_equity": 96292.0
+    },
+    {
+      "ticker": "BALKRISIND.NS",
+      "trades": 11,
+      "win_rate": 45.5,
+      "return_pct": -3.76,
+      "final_equity": 96243.0
+    },
+    {
+      "ticker": "BPCL.NS",
+      "trades": 5,
+      "win_rate": 20.0,
+      "return_pct": -3.95,
+      "final_equity": 96048.0
+    },
+    {
+      "ticker": "CHOLAFIN.NS",
+      "trades": 9,
+      "win_rate": 44.4,
+      "return_pct": -4.36,
+      "final_equity": 95638.0
+    },
+    {
+      "ticker": "AMBUJACEM.NS",
+      "trades": 8,
+      "win_rate": 25.0,
+      "return_pct": -4.73,
+      "final_equity": 95269.0
+    },
+    {
+      "ticker": "NESTLEIND.NS",
+      "trades": 7,
+      "win_rate": 28.6,
+      "return_pct": -4.8,
+      "final_equity": 95204.0
+    },
+    {
+      "ticker": "BANDHANBNK.NS",
+      "trades": 11,
+      "win_rate": 36.4,
+      "return_pct": -6.1,
+      "final_equity": 93900.0
     }
   ],
-  "best": "INFY.NS",
+  "best": "MPHASIS.NS",
   "best_trades": [
     {
       "date": "2026-02-12",
@@ -86,24 +695,18 @@
     },
     {
       "date": "2026-02-18",
-      "action": "SELL",
-      "entry": 1360.0,
-      "exit": 1372.0,
-      "exit_reason": "eod",
-      "or_high": 1393.9,
-      "or_low": 1363.4,
-      "stoploss": 1393.9,
-      "target": 1317.65,
-      "pnl_pct": -0.75,
-      "pnl_inr": -754.0,
-      "equity": 99246.0
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 100000,
+      "reason": "no signal"
     },
     {
       "date": "2026-02-19",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -111,7 +714,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -119,7 +722,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -127,7 +730,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -135,7 +738,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -143,7 +746,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -151,7 +754,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -159,7 +762,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
@@ -167,23 +770,29 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 100000,
       "reason": "no signal"
     },
     {
       "date": "2026-03-05",
-      "action": "HOLD",
-      "pnl_pct": 0.0,
-      "pnl_inr": 0.0,
-      "equity": 99246.0,
-      "reason": "no signal"
+      "action": "SELL",
+      "entry": 2253.8,
+      "exit": 2207.9,
+      "exit_reason": "target",
+      "or_high": 2298.9,
+      "or_low": 2262.5,
+      "stoploss": 2298.9,
+      "target": 2207.9,
+      "pnl_pct": 1.58,
+      "pnl_inr": 1581.0,
+      "equity": 101581.0
     },
     {
       "date": "2026-03-06",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -191,7 +800,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -199,7 +808,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -207,7 +816,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -215,7 +824,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -223,7 +832,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -231,7 +840,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -239,7 +848,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
@@ -247,51 +856,45 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 99246.0,
+      "equity": 101581.0,
       "reason": "no signal"
     },
     {
       "date": "2026-03-19",
       "action": "SELL",
-      "entry": 1239.7,
-      "exit": 1219.5,
-      "exit_reason": "target",
-      "or_high": 1253.5,
-      "or_low": 1239.9,
-      "stoploss": 1253.5,
-      "target": 1219.5,
-      "pnl_pct": 1.26,
-      "pnl_inr": 1246.0,
-      "equity": 100492.0
+      "entry": 2075.3,
+      "exit": 2060.9,
+      "exit_reason": "eod",
+      "or_high": 2109.8,
+      "or_low": 2077.3,
+      "stoploss": 2109.8,
+      "target": 2028.55,
+      "pnl_pct": 0.51,
+      "pnl_inr": 515.0,
+      "equity": 102096.0
     },
     {
       "date": "2026-03-20",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100492.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
       "date": "2026-03-23",
-      "action": "BUY",
-      "entry": 1248.4,
-      "exit": 1256.8,
-      "exit_reason": "eod",
-      "or_high": 1245.7,
-      "or_low": 1227.9,
-      "stoploss": 1227.9,
-      "target": 1272.4,
-      "pnl_pct": 0.49,
-      "pnl_inr": 493.0,
-      "equity": 100985.0
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 102096.0,
+      "reason": "no signal"
     },
     {
       "date": "2026-03-24",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -299,7 +902,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -307,7 +910,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -315,7 +918,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -323,7 +926,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -331,7 +934,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -339,7 +942,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -347,7 +950,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -355,7 +958,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -363,7 +966,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -371,7 +974,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -379,7 +982,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -387,7 +990,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -395,7 +998,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -403,7 +1006,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -411,29 +1014,23 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 100985.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
       "date": "2026-04-21",
-      "action": "BUY",
-      "entry": 1310.4,
-      "exit": 1320.15,
-      "exit_reason": "target",
-      "or_high": 1307.7,
-      "or_low": 1299.4,
-      "stoploss": 1299.4,
-      "target": 1320.15,
-      "pnl_pct": 0.55,
-      "pnl_inr": 553.0,
-      "equity": 101538.0
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 102096.0,
+      "reason": "no signal"
     },
     {
       "date": "2026-04-22",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 101538.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
@@ -441,65 +1038,65 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 101538.0,
+      "equity": 102096.0,
       "reason": "no signal"
     },
     {
       "date": "2026-04-24",
       "action": "SELL",
-      "entry": 1196.2,
-      "exit": 1165.2,
+      "entry": 2214.0,
+      "exit": 2165.6,
       "exit_reason": "target",
-      "or_high": 1223.2,
-      "or_low": 1200.0,
-      "stoploss": 1223.2,
-      "target": 1165.2,
-      "pnl_pct": 2.03,
-      "pnl_inr": 2056.0,
-      "equity": 103594.0
+      "or_high": 2284.1,
+      "or_low": 2236.7,
+      "stoploss": 2284.1,
+      "target": 2165.6,
+      "pnl_pct": 1.7,
+      "pnl_inr": 1737.0,
+      "equity": 103833.0
     },
     {
       "date": "2026-04-27",
       "action": "BUY",
-      "entry": 1178.4,
-      "exit": 1172.9,
+      "entry": 2238.3,
+      "exit": 2264.9,
       "exit_reason": "eod",
-      "or_high": 1176.0,
-      "or_low": 1155.7,
-      "stoploss": 1155.7,
-      "target": 1206.45,
-      "pnl_pct": -0.42,
-      "pnl_inr": -437.0,
-      "equity": 103157.0
+      "or_high": 2231.9,
+      "or_low": 2193.0,
+      "stoploss": 2193.0,
+      "target": 2290.25,
+      "pnl_pct": 0.9,
+      "pnl_inr": 937.0,
+      "equity": 104770.0
     },
     {
       "date": "2026-04-28",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103157.0,
+      "equity": 104770.0,
       "reason": "no signal"
     },
     {
       "date": "2026-04-29",
       "action": "BUY",
-      "entry": 1174.4,
-      "exit": 1175.1,
+      "entry": 2297.6,
+      "exit": 2318.95,
       "exit_reason": "target",
-      "or_high": 1164.6,
-      "or_low": 1157.6,
-      "stoploss": 1157.6,
-      "target": 1175.1,
-      "pnl_pct": -0.0,
-      "pnl_inr": -0.0,
-      "equity": 103157.0
+      "or_high": 2287.9,
+      "or_low": 2267.2,
+      "stoploss": 2267.2,
+      "target": 2318.95,
+      "pnl_pct": 0.7,
+      "pnl_inr": 729.0,
+      "equity": 105499.0
     },
     {
       "date": "2026-04-30",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103157.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
@@ -507,7 +1104,7 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103157.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
@@ -515,29 +1112,23 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103157.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
       "date": "2026-05-06",
-      "action": "SELL",
-      "entry": 1177.4,
-      "exit": 1170.45,
-      "exit_reason": "target",
-      "or_high": 1191.2,
-      "or_low": 1182.9,
-      "stoploss": 1191.2,
-      "target": 1170.45,
-      "pnl_pct": 0.42,
-      "pnl_inr": 438.0,
-      "equity": 103595.0
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 105499.0,
+      "reason": "no signal"
     },
     {
       "date": "2026-05-07",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103595.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
@@ -545,29 +1136,23 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103595.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
       "date": "2026-05-11",
-      "action": "BUY",
-      "entry": 1179.6,
-      "exit": 1176.0,
-      "exit_reason": "eod",
-      "or_high": 1178.9,
-      "or_low": 1172.2,
-      "stoploss": 1172.2,
-      "target": 1188.95,
-      "pnl_pct": -0.29,
-      "pnl_inr": -303.0,
-      "equity": 103292.0
+      "action": "HOLD",
+      "pnl_pct": 0.0,
+      "pnl_inr": 0.0,
+      "equity": 105499.0,
+      "reason": "no signal"
     },
     {
       "date": "2026-05-12",
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103292.0,
+      "equity": 105499.0,
       "reason": "no signal"
     },
     {
@@ -575,9 +1160,10 @@
       "action": "HOLD",
       "pnl_pct": 0.0,
       "pnl_inr": 0.0,
-      "equity": 103292.0,
+      "equity": 105499.0,
       "reason": "no signal"
     }
   ],
-  "capital": 100000
+  "capital": 100000,
+  "total_stocks": 94
 }

@@ -19,10 +19,46 @@ from tracking.trade_logger import TradeLogger
 
 IST = pytz.timezone("Asia/Kolkata")
 
-# Top 10 most liquid NSE stocks for intraday (tight spreads, high volume F&O)
+# Full 100+ liquid NSE stocks — all F&O eligible (high volume, tight spreads)
 INTRADAY_WATCHLIST = [
-    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
-    "SBIN.NS",     "AXISBANK.NS", "BHARTIARTL.NS", "WIPRO.NS", "BAJFINANCE.NS",
+    # ── IT & Tech ──────────────────────────────────────────────────────────
+    "TCS.NS","INFY.NS","WIPRO.NS","HCLTECH.NS","TECHM.NS","LTIM.NS",
+    "MPHASIS.NS","COFORGE.NS","PERSISTENT.NS","OFSS.NS",
+    # ── Banking ────────────────────────────────────────────────────────────
+    "HDFCBANK.NS","ICICIBANK.NS","KOTAKBANK.NS","SBIN.NS","AXISBANK.NS",
+    "INDUSINDBK.NS","FEDERALBNK.NS","IDFCFIRSTB.NS","BANDHANBNK.NS",
+    "BANKBARODA.NS","PNB.NS","CANARABANK.NS","UNIONBANK.NS",
+    # ── NBFC & Financials ──────────────────────────────────────────────────
+    "BAJFINANCE.NS","BAJAJFINSV.NS","HDFCLIFE.NS","SBILIFE.NS",
+    "CHOLAFIN.NS","MUTHOOTFIN.NS","SHRIRAMFIN.NS","RECLTD.NS",
+    "PFC.NS","IRFC.NS","M&MFIN.NS",
+    # ── Energy & Oil ───────────────────────────────────────────────────────
+    "RELIANCE.NS","ONGC.NS","BPCL.NS","IOC.NS","COALINDIA.NS",
+    "POWERGRID.NS","NTPC.NS","TATAPOWER.NS","ADANIGREEN.NS","ADANIPOWER.NS",
+    # ── Industrials & Infra ────────────────────────────────────────────────
+    "LT.NS","ADANIENT.NS","ADANIPORTS.NS","SIEMENS.NS","ABB.NS",
+    "BHEL.NS","CUMMINSIND.NS","HAVELLS.NS","POLYCAB.NS","VOLTAS.NS",
+    # ── Cement & Materials ─────────────────────────────────────────────────
+    "ULTRACEMCO.NS","GRASIM.NS","AMBUJACEM.NS","ACC.NS","SHREECEM.NS",
+    # ── Metals ─────────────────────────────────────────────────────────────
+    "JSWSTEEL.NS","TATASTEEL.NS","HINDALCO.NS","VEDL.NS","SAIL.NS","NMDC.NS",
+    # ── Auto ───────────────────────────────────────────────────────────────
+    "MARUTI.NS","TATAMOTORS.NS","BAJAJ-AUTO.NS","HEROMOTOCO.NS",
+    "EICHERMOT.NS","M&M.NS","ASHOKLEY.NS","BALKRISIND.NS","MOTHERSON.NS",
+    # ── FMCG & Consumer ────────────────────────────────────────────────────
+    "HINDUNILVR.NS","ITC.NS","NESTLEIND.NS","BRITANNIA.NS",
+    "TATACONSUM.NS","ASIANPAINT.NS","GODREJCP.NS","MARICO.NS",
+    "DABUR.NS","EMAMILTD.NS","COLPAL.NS","PIDILITIND.NS",
+    # ── Pharma & Health ────────────────────────────────────────────────────
+    "SUNPHARMA.NS","DRREDDY.NS","CIPLA.NS","DIVISLAB.NS","APOLLOHOSP.NS",
+    "LUPIN.NS","TORNTPHARM.NS","AUROPHARMA.NS","ZYDUSLIFE.NS","BIOCON.NS",
+    # ── Retail & Consumer Discretionary ────────────────────────────────────
+    "TITAN.NS","DMART.NS","TRENT.NS","JUBLFOOD.NS","NYKAA.NS",
+    # ── Telecom ────────────────────────────────────────────────────────────
+    "BHARTIARTL.NS","IDEA.NS",
+    # ── New-age & Others ───────────────────────────────────────────────────
+    "ZOMATO.NS","PAYTM.NS","NAUKRI.NS","INDIGO.NS",
+    "DLF.NS","GODREJPROP.NS","OBEROIRLTY.NS",
 ]
 
 CAPITAL = 100_000
