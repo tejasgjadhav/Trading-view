@@ -89,6 +89,12 @@ jobs:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
 
+      - name: Run Jane Street 2-year backtest
+        run: python -m jane_street.agent --backtest
+        env:
+          PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
+
       - name: Commit updated backtest results
         run: |
           git config user.name "Trading Bot"
