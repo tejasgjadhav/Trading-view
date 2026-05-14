@@ -1,33 +1,34 @@
 """
-Trading Strategy Configuration
+Trading Strategy Configuration — NSE India
 Inspired by strategies from world's top traders
 """
 
-# ─── WATCHLIST ───────────────────────────────────────────────────────────────
-# Top liquid stocks + ETFs across sectors
+# ─── WATCHLIST (NSE India) ────────────────────────────────────────────────────
+# Top Nifty 50 stocks + sector ETFs — suffix .NS = NSE, .BO = BSE
 WATCHLIST = [
-    # Mega-cap tech
-    "AAPL", "MSFT", "NVDA", "GOOGL", "META", "AMZN", "TSLA",
-    # Financials
-    "JPM", "GS", "BAC",
-    # ETFs (for macro plays)
-    "SPY", "QQQ", "IWM", "GLD", "TLT",
-    # Energy
-    "XOM", "CVX",
-    # Healthcare
-    "UNH", "JNJ",
+    # Large-cap — Nifty heavyweights
+    "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
+    "HINDUNILVR.NS", "BAJFINANCE.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "WIPRO.NS",
+    # Banking & Financials
+    "SBIN.NS", "AXISBANK.NS", "HDFCLIFE.NS",
+    # Industrials & Infra
+    "ADANIENT.NS", "ADANIPORTS.NS", "LTIM.NS",
+    # Consumer & Auto
+    "MARUTI.NS", "TITAN.NS", "ASIANPAINT.NS",
+    # ETFs (Nifty + Gold + IT)
+    "NIFTYBEES.NS", "GOLDBEES.NS", "JUNIORBEES.NS",
 ]
 
 # ─── BACKTEST SETTINGS ───────────────────────────────────────────────────────
 BACKTEST_PERIOD_YEARS = 3          # Years of historical data to backtest
-INITIAL_CAPITAL = 100_000          # Starting capital in USD
-POSITION_SIZE_PCT = 0.10           # 10% of capital per trade (risk management)
+INITIAL_CAPITAL = 1_000_000        # Starting capital in INR (₹10 lakhs)
+POSITION_SIZE_PCT = 0.10           # 10% of capital per trade
 MAX_POSITIONS = 8                  # Max concurrent open positions
-COMMISSION_PCT = 0.001             # 0.1% commission per trade (realistic)
+COMMISSION_PCT = 0.0003            # 0.03% brokerage (Zerodha flat fee approx)
 SLIPPAGE_PCT = 0.0005              # 0.05% slippage
 
 # ─── RISK MANAGEMENT ─────────────────────────────────────────────────────────
-STOP_LOSS_PCT = 0.07               # 7% stop loss (Paul Tudor Jones rule)
+STOP_LOSS_PCT = 0.07               # 7% stop loss
 TAKE_PROFIT_PCT = 0.20             # 20% take profit
 TRAILING_STOP_PCT = 0.05           # 5% trailing stop
 
@@ -44,9 +45,11 @@ STRATEGY_WEIGHTS = {
 ENSEMBLE_BUY_THRESHOLD = 0.55
 ENSEMBLE_SELL_THRESHOLD = -0.40
 
-# ─── SCHEDULE ────────────────────────────────────────────────────────────────
-SIGNAL_TIME = "09:00"              # Generate signals at 9am ET (pre-market)
-TIMEZONE = "America/New_York"
+# ─── SCHEDULE (IST = UTC+5:30) ───────────────────────────────────────────────
+SIGNAL_TIME = "09:00"              # 9:00am IST (pre-market, NSE opens 9:15am)
+TIMEZONE = "Asia/Kolkata"
+CURRENCY = "INR"
+CURRENCY_SYMBOL = "₹"
 
 # ─── DATA PATHS ──────────────────────────────────────────────────────────────
 TRADE_LOG_PATH = "data/trade_log.json"

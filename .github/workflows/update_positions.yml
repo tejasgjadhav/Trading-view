@@ -2,8 +2,8 @@ name: Update Open Position P&L (Midday Check)
 
 on:
   schedule:
-    # Run at 1:00 PM ET Mon–Fri (18:00 UTC) — midday check
-    - cron: '0 18 * * 1-5'
+    # Run at 1:00 PM IST Mon–Fri (1:00 PM IST = 07:30 UTC) — midday check
+    - cron: '30 7 * * 1-5'
   workflow_dispatch:
 
 permissions:

@@ -2,8 +2,9 @@ name: Daily Trading Signals
 
 on:
   schedule:
-    # Run at 9:00 AM ET Mon–Fri (14:00 UTC)
-    - cron: '0 14 * * 1-5'
+    # Run at 9:00 AM IST Mon–Fri (IST = UTC+5:30, so 9:00 IST = 03:30 UTC)
+    # NSE opens at 9:15 AM IST — signals generated 15 min before open
+    - cron: '30 3 * * 1-5'
   workflow_dispatch:  # Allow manual trigger
 
 permissions:
@@ -33,7 +34,7 @@ jobs:
         run: python main.py signals
         env:
           PYTHONUNBUFFERED: '1'
-          TZ: 'America/New_York'
+          TZ: 'Asia/Kolkata'
 
       - name: Commit signals and reports
         run: |

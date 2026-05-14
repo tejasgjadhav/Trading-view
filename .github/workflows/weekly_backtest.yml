@@ -2,8 +2,8 @@ name: Weekly Backtest & Performance Report
 
 on:
   schedule:
-    # Every Sunday at 6:00 PM ET (23:00 UTC) — after market week ends
-    - cron: '0 23 * * 0'
+    # Every Sunday at 6:00 PM IST (6:00 PM IST = 12:30 UTC) — weekly review
+    - cron: '30 12 * * 0'
   workflow_dispatch:
     inputs:
       ticker:
