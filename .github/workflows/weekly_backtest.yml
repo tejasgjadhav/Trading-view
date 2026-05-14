@@ -1,89 +1,100 @@
-name: Weekly Backtest & Performance Report
+name: Weekly Backtest (Every Sunday 6 PM IST)
 
 on:
   schedule:
-    # Every Sunday at 6:00 PM IST (6:00 PM IST = 12:30 UTC) — weekly review
+    # Every Sunday at 6:00 PM IST = 12:30 UTC
     - cron: '30 12 * * 0'
-  workflow_dispatch:
-    inputs:
-      ticker:
-        description: 'Specific ticker to backtest (leave empty for full watchlist)'
-        required: false
-        default: ''
+  workflow_dispatch:   # Can also trigger manually anytime from GitHub UI
 
 permissions:
   contents: write
 
 jobs:
-  backtest:
+  intraday-backtest:
+    name: "Intraday ORB Backtest — 100 NSE Stocks"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-      - name: Run full backtest
+      - name: Run 60-day intraday backtest on all 100 stocks
         run: |
-          TICKER="${{ github.event.inputs.ticker }}"
-          if [ -n "$TICKER" ]; then
-            python main.py backtest "$TICKER"
-          else
-            python main.py backtest
-          fi
+          python - <<'EOF'
+          import sys, json, os, warnings
+          warnings.filterwarnings('ignore')
+          sys.path.insert(0, '.')
+          import yfinance as yf, pandas as pd, numpy as np, pytz
+          from strategies.intraday import backtest_orb_intraday
+          from live.intraday_morning import INTRADAY_WATCHLIST
+
+          IST = pytz.timezone("Asia/Kolkata")
+          CAPITAL = 100_000
+          results = []
+
+          print(f"Backtesting {len(INTRADAY_WATCHLIST)} stocks × 60 days of 5-min data...\n")
+
+          for ticker in INTRADAY_WATCHLIST:
+              try:
+                  df = yf.download(ticker, period="60d", interval="5m", auto_adjust=True, progress=False)
+                  if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
+                  if df.empty or len(df) < 30: continue
+                  if df.index.tz is None:
+                      df.index = df.index.tz_localize("UTC").tz_convert(IST)
+                  else:
+                      df.index = df.index.tz_convert(IST)
+                  res = backtest_orb_intraday(df, capital=CAPITAL)
+                  trades = [t for t in res["trades"] if t["action"] != "HOLD"]
+                  wins   = [t for t in trades if t["pnl_inr"] > 0]
+                  wr     = len(wins)/len(trades)*100 if trades else 0
+                  results.append({
+                      "ticker":       ticker,
+                      "trades":       len(trades),
+                      "win_rate":     round(wr, 1),
+                      "return_pct":   res["total_return_pct"],
+                      "final_equity": res["final_equity"],
+                      "trade_log":    res["trades"],
+                  })
+                  print(f"  {'✓' if res['total_return_pct']>=0 else '✗'} {ticker:<20} {res['total_return_pct']:>+6.1f}%  ₹{res['final_equity']:>9,.0f}  wr={wr:.0f}%  trades={len(trades)}")
+              except Exception as e:
+                  print(f"  ! {ticker:<20} {e}")
+
+          results.sort(key=lambda x: x["return_pct"], reverse=True)
+          best = results[0] if results else {}
+
+          print(f"\n{'='*60}")
+          print(f"BEST: {best.get('ticker','')}  {best.get('return_pct',0):+.1f}%  ₹{best.get('final_equity',0):,.0f}")
+          print(f"Top 5: {[r['ticker'] for r in results[:5]]}")
+          print(f"{'='*60}")
+
+          os.makedirs("results", exist_ok=True)
+          with open("results/intraday_backtest.json", "w") as f:
+              json.dump({
+                  "run_date":     str(__import__('datetime').date.today()),
+                  "total_stocks": len(results),
+                  "capital":      CAPITAL,
+                  "best":         best.get("ticker", ""),
+                  "best_trades":  best.get("trade_log", []),
+                  "results": [{k:v for k,v in r.items() if k != "trade_log"} for r in results],
+              }, f, indent=2, default=str)
+          EOF
         env:
           PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
 
-      - name: Generate performance report
-        run: python main.py report
-
-      - name: Commit backtest results
+      - name: Commit updated backtest results
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
-          git add results/ reports/ README.md data/
-          git diff --staged --quiet || git commit -m "📈 Weekly backtest — $(date '+%Y-%m-%d')"
+          git add results/intraday_backtest.json
+          git diff --staged --quiet || git commit -m "📊 Weekly backtest — $(date '+%d %b %Y')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload backtest results
-        uses: actions/upload-artifact@v4
-        with:
-          name: backtest-results-${{ github.run_id }}
-          path: |
-            results/backtest_results.json
-            reports/daily_report.md
-          retention-days: 365
-
-  check-positions:
-    runs-on: ubuntu-latest
-    needs: backtest
-    timeout-minutes: 10
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Check open position P&L
-        run: python main.py summary
-        env:
-          PYTHONUNBUFFERED: '1'
