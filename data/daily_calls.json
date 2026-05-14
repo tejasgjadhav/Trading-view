@@ -1,1 +1,30 @@
-{"calls":[],"equity":100000}
+{
+  "calls": [
+    {
+      "date": "2026-05-14",
+      "signal_time": "10:05 AM IST",
+      "ticker": "\u2014",
+      "action": "HOLD",
+      "entry": null,
+      "target": null,
+      "stoploss": null,
+      "or_high": null,
+      "or_low": null,
+      "vwap": null,
+      "vol_ratio": null,
+      "reason": "No stock passed both backtest filter and live ORB signal",
+      "bt_return": 0,
+      "live_score": 0,
+      "combined_score": 0,
+      "equity_start": 100000,
+      "exit": null,
+      "exit_time": null,
+      "exit_reason": null,
+      "pnl_pct": null,
+      "pnl_inr": null,
+      "equity_end": null,
+      "status": "hold"
+    }
+  ],
+  "equity": 100000
+}
