@@ -43,7 +43,7 @@ WATCHLIST = [
 
 # --- TIMING (IST) ---
 ENTRY_TIME        = "09:45"   # Never before this
-KILL_SWITCH_TIME  = "14:00"   # Force-close all positions at 2 PM
+KILL_SWITCH_TIME  = "15:20"   # Force-close all positions at 3:20 PM (10 min before close)
 MARKET_OPEN       = "09:15"
 MARKET_CLOSE      = "15:30"
 

@@ -50,7 +50,7 @@ def find_exit(df: pd.DataFrame, direction: str,
     Rule 2: If stop hit before target → exit at stop
     Rule 3: Otherwise → exit at 15:30 close (mandatory EOD)
     """
-    post_signal = df.between_time("09:45", "15:30")
+    post_signal = df.between_time("09:45", "15:20")
     if post_signal.empty:
         return {"exit": entry, "reason": "no_data_after_signal"}
 
@@ -72,11 +72,11 @@ def find_exit(df: pd.DataFrame, direction: str,
                 return {"exit": stoploss, "reason": "stoploss_hit",
                         "time": ts.strftime("%I:%M %p")}
 
-    # Neither target nor stop hit → close at end of day (3:30 PM)
-    eod_bars = df.between_time("15:25", "15:31")
+    # Neither target nor stop hit → force close at 3:20 PM (10 min before market close)
+    eod_bars = df.between_time("15:15", "15:21")
     eod_price = float(eod_bars.iloc[-1]["Close"]) if not eod_bars.empty else float(df.iloc[-1]["Close"])
-    return {"exit": eod_price, "reason": "eod_close_3:30PM",
-            "time": "03:30 PM"}
+    return {"exit": eod_price, "reason": "force_close_3:20PM",
+            "time": "03:20 PM"}
 
 
 def record_eod_pnl():
@@ -173,7 +173,7 @@ def record_eod_pnl():
     reason_label = {
         "target_hit":       "🎯 TARGET HIT",
         "stoploss_hit":     "🛑 STOP HIT",
-        "eod_close_3:30PM": "🔔 EOD CLOSE (3:30 PM)",
+        "force_close_3:20PM": "🔔 FORCE CLOSE (3:20 PM)",
         "no_data":          "⚠ No data",
     }.get(exit_reason, exit_reason)
 

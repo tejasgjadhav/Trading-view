@@ -2,8 +2,8 @@ name: "3:35 PM — Record EOD P&L"
 
 on:
   schedule:
-    # 3:35 PM IST = 10:05 UTC  (Mon–Fri)
-    - cron: '5 10 * * 1-5'
+    # 3:20 PM IST = 09:50 UTC  (Mon–Fri)
+    - cron: '50 9 * * 1-5'
   workflow_dispatch:
 
 permissions:
