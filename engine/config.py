@@ -74,7 +74,7 @@ MIN_SIGNALS_WATCHLIST       = 1   # Reduced conviction: ≥1 of 7 signals
 
 # --- BACKTEST CONFIG ---
 BACKTEST_PERIOD_YEARS   = 2
-MIN_WIN_RATE_THRESHOLD  = 0.70   # Gate: ≥70% win rate required for Tier 1/2
+MIN_WIN_RATE_THRESHOLD  = 0.60   # Gate: ≥60% win rate required for Tier 1/2
 COMMISSION_PER_TRADE    = 20     # INR per order (Zerodha)
 SLIPPAGE_PERCENT        = 0.001  # 0.1%
 

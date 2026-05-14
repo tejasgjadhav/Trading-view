@@ -120,7 +120,7 @@ def _scan_live(tickers: list, bt_lookup: dict = None) -> list:
 
 # ── Level builder ────────────────────────────────────────────────────────────
 
-def _build_call(sig: dict, now_ist: datetime, conviction: str) -> dict | None:
+def _build_call(sig: dict, now_ist: datetime, conviction: str):
     ticker  = sig["ticker"]
     entry   = sig.get("current_price", 0)
     orb_low = sig.get("orb_low", entry * 0.99)

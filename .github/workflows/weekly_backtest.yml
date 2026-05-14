@@ -1,19 +1,19 @@
-name: Weekly Backtest (Every Sunday 6 PM IST) — Max 1-Day Return
+name: Weekly Backtest (Every Sunday 6 PM IST)
 
 on:
   schedule:
     # Every Sunday at 6:00 PM IST = 12:30 UTC
     - cron: '30 12 * * 0'
-  workflow_dispatch:   # Can also trigger manually anytime from GitHub UI
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  intraday-backtest:
-    name: "Intraday ORB Backtest — 100 NSE Stocks"
+  backtest:
+    name: "Full Backtest — 95 NSE Stocks"
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -25,47 +25,100 @@ jobs:
 
       - run: pip install -r requirements.txt
 
-      - name: Run 60-day intraday backtest on all 100 stocks
+      - name: 60-day ORB backtest — all 95 stocks (5-min data)
         run: |
           python - <<'EOF'
-          import sys, json, os, warnings
+          import sys, json, os, warnings, math
           warnings.filterwarnings('ignore')
           sys.path.insert(0, '.')
-          import yfinance as yf, pandas as pd, numpy as np, pytz
-          from strategies.intraday import backtest_orb_intraday
+          import yfinance as yf, pandas as pd, pytz
           from engine.config import WATCHLIST
 
-          IST = pytz.timezone("Asia/Kolkata")
+          IST     = pytz.timezone("Asia/Kolkata")
           CAPITAL = 100_000
-          results = []
 
-          print(f"Backtesting {len(WATCHLIST)} stocks × 60 days of 5-min data...\n")
+          def run_orb(df, capital=100_000):
+              """Inline ORB backtest on 5-min NSE data."""
+              equity = capital
+              trades = []
+              if df.empty: return {"trades":[], "total_return_pct":0, "final_equity":capital}
+
+              dates = sorted(df.index.normalize().unique())
+              for d in dates:
+                  day = df[df.index.normalize() == d]
+                  if len(day) < 10: continue
+                  or_bars  = day.iloc[:6]
+                  or_high  = float(or_bars["High"].max())
+                  or_low   = float(or_bars["Low"].min())
+                  rest     = day.iloc[6:]
+                  if rest.empty: continue
+
+                  entry = stop = target = None
+                  for _, bar in rest.iterrows():
+                      if float(bar["Close"]) > or_high:
+                          entry  = float(bar["Close"])
+                          stop   = round(or_low * 0.998, 2)
+                          risk   = entry - stop
+                          if risk <= 0: break
+                          target = round(entry + risk * 2.0, 2)
+                          break
+
+                  if not entry: continue
+
+                  exit_price = float(day.iloc[-1]["Close"])
+                  outcome    = "PARTIAL"
+                  for _, bar in rest.iterrows():
+                      if float(bar["High"]) >= target:
+                          exit_price, outcome = target, "WIN"; break
+                      if float(bar["Low"]) <= stop:
+                          exit_price, outcome = stop, "LOSS"; break
+
+                  pnl_pct = round((exit_price - entry) / entry * 100, 3)
+                  shares  = max(1, int(equity * 0.8 / entry))
+                  pnl_inr = round(shares * (exit_price - entry), 2)
+                  equity += pnl_inr
+
+                  trades.append({
+                      "date": str(d.date()), "action": "BUY",
+                      "entry": round(entry,2), "exit": round(exit_price,2),
+                      "pnl_pct": pnl_pct, "pnl_inr": pnl_inr,
+                      "outcome": outcome, "equity": round(equity,2),
+                  })
+
+              return {
+                  "trades": trades,
+                  "total_return_pct": round((equity/capital-1)*100, 2),
+                  "final_equity": round(equity, 2),
+              }
+
+          results = []
+          print(f"Scanning {len(WATCHLIST)} stocks × 60 days...\n")
 
           for ticker in WATCHLIST:
               try:
                   df = yf.download(ticker, period="60d", interval="5m", auto_adjust=True, progress=False)
                   if isinstance(df.columns, pd.MultiIndex): df.columns = df.columns.get_level_values(0)
                   if df.empty or len(df) < 30: continue
-                  if df.index.tz is None:
-                      df.index = df.index.tz_localize("UTC").tz_convert(IST)
-                  else:
-                      df.index = df.index.tz_convert(IST)
-                  res = backtest_orb_intraday(df, capital=CAPITAL)
-                  trades = [t for t in res["trades"] if t["action"] != "HOLD"]
-                  wins   = [t for t in trades if t["pnl_inr"] > 0]
+                  df.index = df.index.tz_localize("UTC").tz_convert(IST) if df.index.tz is None else df.index.tz_convert(IST)
+
+                  res    = run_orb(df, CAPITAL)
+                  trades = [t for t in res["trades"] if t.get("action") != "HOLD"]
+                  wins   = [t for t in trades if t.get("pnl_inr", 0) > 0]
                   wr     = len(wins)/len(trades)*100 if trades else 0
-                  pnl_pcts = [t.get("pnl_pct", 0) for t in trades]
-                  max_1day = round(max(pnl_pcts), 2) if pnl_pcts else 0
+                  pcts   = [t.get("pnl_pct", 0) for t in trades]
+                  max1d  = round(max(pcts), 2) if pcts else 0
+                  avg_w  = round(sum(t["pnl_pct"] for t in wins)/len(wins), 2) if wins else 0
+
                   results.append({
-                      "ticker":           ticker,
-                      "trades":           len(trades),
-                      "win_rate":         round(wr, 1),
-                      "return_pct":       res["total_return_pct"],
-                      "max_1day_return":  max_1day,
-                      "final_equity":     res["final_equity"],
-                      "trade_log":        res["trades"],
+                      "ticker":          ticker,
+                      "trades":          len(trades),
+                      "win_rate":        round(wr, 1),
+                      "max_1day_return": max1d,
+                      "avg_win_return":  avg_w,
+                      "final_equity":    res["final_equity"],
+                      "trade_log":       trades,
                   })
-                  print(f"  {'✓' if res['total_return_pct']>=0 else '✗'} {ticker:<20} maxDay={max_1day:>+5.1f}%  wr={wr:.0f}%  trades={len(trades)}")
+                  print(f"  {'✓' if wr>=60 else '·'} {ticker:<20} maxDay={max1d:>+5.1f}%  wr={wr:.0f}%  trades={len(trades)}")
               except Exception as e:
                   print(f"  ! {ticker:<20} {e}")
 
@@ -74,7 +127,7 @@ jobs:
 
           print(f"\n{'='*60}")
           print(f"BEST: {best.get('ticker','')}  MaxDay={best.get('max_1day_return',0):+.1f}%  WR={best.get('win_rate',0):.0f}%")
-          print(f"Top 5 by max 1-day return: {[r['ticker'] for r in results[:5]]}")
+          print(f"Top 5: {[r['ticker'] for r in results[:5]]}")
           print(f"{'='*60}")
 
           os.makedirs("results", exist_ok=True)
@@ -83,27 +136,28 @@ jobs:
                   "run_date":     str(__import__('datetime').date.today()),
                   "total_stocks": len(results),
                   "capital":      CAPITAL,
-                  "best":         best.get("ticker", ""),
-                  "best_trades":  best.get("trade_log", []),
-                  "results": [{k:v for k,v in r.items() if k != "trade_log"} for r in results],
+                  "best":         best.get("ticker",""),
+                  "best_trades":  best.get("trade_log",[]),
+                  "results": [{k:v for k,v in r.items() if k!="trade_log"} for r in results],
               }, f, indent=2, default=str)
+          print("Saved results/intraday_backtest.json")
           EOF
         env:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
 
-      - name: Run 2-year strategy backtest (max 1-day return ranking)
+      - name: 2-year strategy backtest (ORB/VWAP/MOMENTUM — ranked by max 1-day)
         run: python -m engine.agent --backtest
         env:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
 
-      - name: Commit updated backtest results
+      - name: Commit backtest results
         run: |
           git config user.name "Trading Bot"
           git config user.email "trading-bot@github.com"
           git add results/intraday_backtest.json results/quant_backtest_cache.json || true
-          git diff --staged --quiet || git commit -m "📊 Weekly backtest — $(date '+%d %b %Y')"
+          git diff --staged --quiet || git commit -m "📊 Weekly backtest — $(TZ=Asia/Kolkata date '+%d %b %Y')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
