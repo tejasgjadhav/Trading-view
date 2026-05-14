@@ -19,7 +19,7 @@
       "vwap": 2598.06,
       "orb_high": 2633.7,
       "orb_low": 2556.0,
-      "rsi": NaN,
+      "rsi": null,
       "vol_ratio": 0.3,
       "signals_aligned": 3,
       "confidence": 0.43,

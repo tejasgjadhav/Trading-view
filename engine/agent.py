@@ -173,9 +173,21 @@ def save_to_calls_log(rec: dict):
             }
             log["calls"].append(call)
 
+    import math
+
+    def _clean(obj):
+        """Recursively replace NaN/Inf with None so JSON stays valid."""
+        if isinstance(obj, dict):
+            return {k: _clean(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_clean(v) for v in obj]
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return None
+        return obj
+
     os.makedirs(os.path.dirname(CALLS_PATH), exist_ok=True)
     with open(CALLS_PATH, "w") as f:
-        json.dump(log, f, indent=2, default=str)
+        json.dump(_clean(log), f, indent=2, default=str)
 
     # Save full rec JSON
     os.makedirs(REPORTS_DIR, exist_ok=True)
