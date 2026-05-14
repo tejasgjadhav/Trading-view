@@ -1,6 +1,6 @@
 # NSE Intraday Signal Engine
 
-**Live dashboard → [tejasgjadhav.github.io/Trading-view](https://tejasgjadhav.github.io/Trading-view/)**
+**Live dashboard → [tejasgjadhav.github.io/Trade-Intraday](https://tejasgjadhav.github.io/Trade-Intraday/)**
 
 Fully automated intraday trading signal system for NSE India. Scans 95 F&O-eligible Nifty stocks every morning, runs a rigorous backtest gate, and outputs up to two BUY calls at 9:45 AM IST with exact entry, target, stop-loss, and capital allocation commentary. No overnight positions. No manual intervention.
 
