@@ -43,10 +43,6 @@ header .sub{font-size:12px;color:#8b949e;margin-top:2px}
 .stat .slabel{font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
 .stat .sval{font-size:22px;font-weight:700}
 
-/* Equity chart */
-.chart-wrap{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin-bottom:24px}
-.chart-wrap h2{font-size:14px;font-weight:600;margin-bottom:16px;color:#c9d1d9}
-#equity-chart{width:100%;height:220px}
 
 /* Trade log table */
 .table-wrap{background:#161b22;border:1px solid #30363d;border-radius:8px;overflow:hidden;margin-bottom:24px}
@@ -151,37 +147,50 @@ a{color:#58a6ff;text-decoration:none}
     </div>
   </section>
 
-  <!-- EQUITY STATS -->
-  <div class="stats" id="equity-stats">
-    <div class="stat"><div class="slabel">Starting Capital</div><div class="sval blue">₹1,00,000</div></div>
-    <div class="stat"><div class="slabel">Current Equity</div><div class="sval green" id="s-equity">—</div></div>
-    <div class="stat"><div class="slabel">Total P&L</div><div class="sval" id="s-pnl">—</div></div>
-    <div class="stat"><div class="slabel">Win Rate</div><div class="sval yellow" id="s-wr">—</div></div>
-    <div class="stat"><div class="slabel">Total Trades</div><div class="sval gray" id="s-trades">—</div></div>
-    <div class="stat"><div class="slabel">Avg P&L/Day</div><div class="sval" id="s-avg">—</div></div>
+  <!-- WIN RATE TRACKER -->
+  <div id="wr-tracker" style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:18px 24px;margin-bottom:24px;display:flex;align-items:center;gap:24px;flex-wrap:wrap">
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Overall Win Rate</div>
+      <div style="display:flex;align-items:baseline;gap:8px">
+        <span id="wr-pct" style="font-size:32px;font-weight:800;color:#3fb950">—</span>
+        <span id="wr-fraction" style="font-size:14px;color:#8b949e">—</span>
+      </div>
+    </div>
+    <div style="width:1px;background:#30363d;align-self:stretch"></div>
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Today</div>
+      <div id="wr-today" style="font-size:15px;font-weight:600;color:#c9d1d9">—</div>
+    </div>
+    <div style="width:1px;background:#30363d;align-self:stretch"></div>
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Streak</div>
+      <div id="wr-streak" style="font-size:15px;font-weight:600;color:#c9d1d9">—</div>
+    </div>
+    <div style="width:1px;background:#30363d;align-self:stretch"></div>
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Avg Win %</div>
+      <div id="wr-avgwin" style="font-size:15px;font-weight:600;color:#3fb950">—</div>
+    </div>
+    <div style="width:1px;background:#30363d;align-self:stretch"></div>
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Avg Loss %</div>
+      <div id="wr-avgloss" style="font-size:15px;font-weight:600;color:#f85149">—</div>
+    </div>
   </div>
 
-  <!-- EQUITY CURVE -->
-  <section>
-    <div class="chart-wrap">
-      <h2>₹1 Lakh Equity Curve <span style="color:#8b949e;font-weight:400;font-size:12px">(date-wise, intraday trades)</span></h2>
-      <canvas id="equity-chart"></canvas>
-    </div>
-  </section>
-
-  <!-- DAILY P&L LOG -->
+  <!-- DAILY CALL TRACKER -->
   <section>
     <div class="table-wrap">
       <div class="thead">
-        <h2>Daily Trade Log</h2>
-        <span style="font-size:12px;color:#8b949e">All calls tracked</span>
+        <h2>Daily Call Tracker</h2>
+        <span style="font-size:12px;color:#8b949e">All signals · % move from entry</span>
       </div>
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Session</th><th>Stock</th><th>Call</th>
-            <th>Entry</th><th>Target</th><th>SL</th><th>Exit</th>
-            <th>P&L %</th><th>P&L ₹</th><th>Equity</th><th>Status</th>
+            <th>Date</th><th>Session</th><th>Stock</th>
+            <th>Entry</th><th>Target</th><th>Stop</th>
+            <th>Result</th><th>Move from Entry</th><th>Exit Time</th>
           </tr>
         </thead>
         <tbody id="trade-log"></tbody>
@@ -459,34 +468,55 @@ function renderConsolidated(todayCalls){
   `;
 }
 
-// ─── Stats ───────────────────────────────────────────────────────────────────
+// ─── Win Rate Tracker ─────────────────────────────────────────────────────────
 function renderStats(calls, equity){
-  const closed=calls.filter(c=>c.status==='closed'&&c.pnl_inr!=null);
-  const wins=closed.filter(c=>c.pnl_inr>0);
-  const totalPnl=closed.reduce((s,c)=>s+(c.pnl_inr||0),0);
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
+  const closed=calls.filter(c=>c.status==='closed'&&c.pnl_pct!=null);
+  const wins=closed.filter(c=>c.pnl_pct>0);
+  const losses=closed.filter(c=>c.pnl_pct<=0);
   const wr=closed.length?Math.round(wins.length/closed.length*100):0;
-  const avgPnl=closed.length?(totalPnl/closed.length).toFixed(0):0;
 
-  const eq=equity||100000;
-  const pnlPct=((eq/100000-1)*100).toFixed(2);
+  // Win rate percentage colour
+  const wrColor=wr>=60?'#3fb950':wr>=40?'#d29922':'#f85149';
+  document.getElementById('wr-pct').textContent=closed.length?`${wr}%`:'—';
+  document.getElementById('wr-pct').style.color=wrColor;
+  document.getElementById('wr-fraction').textContent=closed.length?`${wins.length}W / ${losses.length}L / ${closed.length} trades`:'No closed trades yet';
 
-  document.getElementById('s-equity').textContent=`₹${eq.toLocaleString('en-IN')}`;
-  document.getElementById('s-equity').className=`sval ${eq>=100000?'green':'red'}`;
+  // Today's result
+  const todayClosed=closed.filter(c=>c.date===today);
+  const todayWins=todayClosed.filter(c=>c.pnl_pct>0).length;
+  const todayTotal=todayClosed.length;
+  const todayEl=document.getElementById('wr-today');
+  if(todayTotal){
+    todayEl.textContent=`${todayWins}/${todayTotal} correct`;
+    todayEl.style.color=todayWins===todayTotal?'#3fb950':todayWins>0?'#d29922':'#f85149';
+  } else {
+    todayEl.textContent='Market open';
+    todayEl.style.color='#8b949e';
+  }
 
-  const pnlEl=document.getElementById('s-pnl');
-  pnlEl.textContent=`${totalPnl>=0?'+':''}₹${Math.round(totalPnl).toLocaleString('en-IN')} (${pnlPct>=0?'+':''}${pnlPct}%)`;
-  pnlEl.className=`sval ${totalPnl>=0?'green':'red'}`;
+  // Current streak
+  const streakEl=document.getElementById('wr-streak');
+  let streak=0, streakType='';
+  for(let i=closed.length-1;i>=0;i--){
+    const isWin=closed[i].pnl_pct>0;
+    if(!streakType){ streakType=isWin?'W':'L'; streak=1; }
+    else if((streakType==='W'&&isWin)||(streakType==='L'&&!isWin)) streak++;
+    else break;
+  }
+  if(streak){ streakEl.textContent=`${streak} ${streakType==='W'?'wins':'losses'} in a row`; streakEl.style.color=streakType==='W'?'#3fb950':'#f85149'; }
+  else { streakEl.textContent='—'; streakEl.style.color='#8b949e'; }
 
-  document.getElementById('s-wr').textContent=`${wr}%`;
-  document.getElementById('s-trades').textContent=closed.length;
-
-  const avgEl=document.getElementById('s-avg');
-  avgEl.textContent=`${Number(avgPnl)>=0?'+':''}₹${Number(avgPnl).toLocaleString('en-IN')}`;
-  avgEl.className=`sval ${Number(avgPnl)>=0?'green':'red'}`;
+  // Avg win / avg loss %
+  const avgWin=wins.length?(wins.reduce((s,c)=>s+c.pnl_pct,0)/wins.length).toFixed(2):null;
+  const avgLoss=losses.length?(losses.reduce((s,c)=>s+c.pnl_pct,0)/losses.length).toFixed(2):null;
+  document.getElementById('wr-avgwin').textContent=avgWin?`+${avgWin}%`:'—';
+  document.getElementById('wr-avgloss').textContent=avgLoss?`${avgLoss}%`:'—';
 }
 
-// ─── Equity Curve (canvas chart) ─────────────────────────────────────────────
-function drawEquityChart(calls, btTrades){
+// ─── Equity Curve — removed per user request ─────────────────────────────────
+function drawEquityChart(calls, btTrades){return;} // kept for call-site compat
+function _drawEquityChart_unused(calls, btTrades){
   const canvas=document.getElementById('equity-chart');
   const ctx=canvas.getContext('2d');
   const dpr=window.devicePixelRatio||1;
@@ -588,29 +618,49 @@ function drawEquityChart(calls, btTrades){
 function renderTradeLog(calls){
   const tbody=document.getElementById('trade-log');
   if(!calls.length){
-    tbody.innerHTML='<tr><td colspan="11" class="empty">No calls yet — first signal runs at 9:45 AM IST on the next weekday</td></tr>';
+    tbody.innerHTML='<tr><td colspan="9" class="empty">No calls yet — first signal runs at 9:45 AM IST on the next weekday</td></tr>';
     return;
   }
   tbody.innerHTML=[...calls].reverse().map(c=>{
-    const actionCls=c.action==='BUY'?'badge-buy':c.action==='SELL'?'badge-sell':'badge-hold';
-    const pnlPct=c.pnl_pct!=null?(c.pnl_pct>=0?`<span class="pnl-w">+${c.pnl_pct}%</span>`:`<span class="pnl-l">${c.pnl_pct}%</span>`):'—';
-    const pnlInr=c.pnl_inr!=null?(c.pnl_inr>=0?`<span class="pnl-w">+₹${Math.round(c.pnl_inr).toLocaleString('en-IN')}</span>`:`<span class="pnl-l">-₹${Math.abs(Math.round(c.pnl_inr)).toLocaleString('en-IN')}</span>`):'—';
-    const statusCls=c.status==='open'?'pill-open':c.status==='hold'?'pill-hold':'pill-closed';
-    const eq=c.equity_end||c.equity_start||'—';
-    const session=c.signal_session==='MIDDAY'?'<span style="color:#d29922;font-size:11px;font-weight:600">11 AM</span>':'<span style="color:#58a6ff;font-size:11px;font-weight:600">9:45 AM</span>';
+    const session=c.signal_session==='MIDDAY'
+      ?'<span style="color:#d29922;font-size:11px;font-weight:600">11 AM</span>'
+      :'<span style="color:#58a6ff;font-size:11px;font-weight:600">9:45 AM</span>';
+
+    // % distances from entry
+    const tgtPct=c.target&&c.entry?`+${((c.target/c.entry-1)*100).toFixed(2)}%`:'—';
+    const slPct=c.stoploss&&c.entry?`-${((1-c.stoploss/c.entry)*100).toFixed(2)}%`:'—';
+
+    // Result label + move from entry
+    let resultBadge='—', moveCell='—';
+    if(c.status==='open'){
+      resultBadge='<span class="pill pill-open">OPEN</span>';
+      moveCell='<span style="color:#8b949e">In trade</span>';
+    } else if(c.exit_reason==='target_hit'){
+      const move=c.target&&c.entry?`+${((c.target/c.entry-1)*100).toFixed(2)}%`:'—';
+      resultBadge='<span style="color:#3fb950;font-weight:700">🎯 TARGET</span>';
+      moveCell=`<span class="pnl-w">${move}</span>`;
+    } else if(c.exit_reason==='stoploss_hit'){
+      const move=c.stoploss&&c.entry?`-${((1-c.stoploss/c.entry)*100).toFixed(2)}%`:'—';
+      resultBadge='<span style="color:#f85149;font-weight:700">🛑 STOPPED</span>';
+      moveCell=`<span class="pnl-l">${move}</span>`;
+    } else if(c.exit&&c.entry){
+      const move=((c.exit/c.entry-1)*100).toFixed(2);
+      resultBadge='<span style="color:#8b949e;font-weight:700">🔔 CLOSED</span>';
+      moveCell=`<span class="${move>=0?'pnl-w':'pnl-l'}">${move>=0?'+':''}${move}%</span>`;
+    } else if(c.status==='hold'){
+      resultBadge='<span class="pill pill-hold">NO TRADE</span>';
+    }
+
     return `<tr>
       <td>${c.date}</td>
       <td>${session}</td>
       <td><strong>${c.ticker||'—'}</strong></td>
-      <td><span class="pill ${actionCls}">${c.action}</span></td>
       <td>${c.entry?`₹${c.entry.toLocaleString('en-IN')}`:'—'}</td>
-      <td style="color:#3fb950">${c.target?`₹${c.target.toLocaleString('en-IN')}`:'—'}</td>
-      <td style="color:#f85149">${c.stoploss?`₹${c.stoploss.toLocaleString('en-IN')}`:'—'}</td>
-      <td>${c.exit?`₹${c.exit.toLocaleString('en-IN')}`:'—'}</td>
-      <td>${pnlPct}</td>
-      <td>${pnlInr}</td>
-      <td>${eq!='—'?`₹${Number(eq).toLocaleString('en-IN')}`:eq}</td>
-      <td><span class="pill ${statusCls}">${c.status||'—'}</span></td>
+      <td style="color:#3fb950">${tgtPct}</td>
+      <td style="color:#f85149">${slPct}</td>
+      <td>${resultBadge}</td>
+      <td style="font-weight:600;font-size:14px">${moveCell}</td>
+      <td>${c.exit_time||'—'}</td>
     </tr>`;
   }).join('');
 }
