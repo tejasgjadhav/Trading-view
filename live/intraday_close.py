@@ -154,8 +154,19 @@ def record_eod_pnl():
     log["calls"]  = [c if c["date"] != today else today_call for c in log["calls"]]
     log["equity"] = round(equity_end, 0)
 
+    import math
+
+    def _clean(obj):
+        if isinstance(obj, dict):
+            return {k: _clean(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [_clean(v) for v in obj]
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+            return None
+        return obj
+
     with open(CALLS_PATH, "w") as f:
-        json.dump(log, f, indent=2, default=str)
+        json.dump(_clean(log), f, indent=2, default=str)
 
     # ─── Print result ────────────────────────────────────────────────────────
     result_icon = "✅ PROFIT" if net_pnl >= 0 else "❌ LOSS"
