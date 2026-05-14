@@ -1,172 +1,188 @@
 """
-3:35 PM Close — Record End-of-Day P&L
+3:35 PM — Record EOD P&L
 ─────────────────────────────────────────────────────────────────────────────
-Runs at 3:35 PM IST via GitHub Actions.
-Fetches closing price for today's trade, calculates P&L,
-updates the equity tracker (₹1 lakh becomes X).
+Rules:
+  • If target was hit during the day → exit at target price
+  • If target NOT hit → exit at 3:30 PM closing price
+  • Never hold overnight under any circumstance
+  • Uses 80% of current equity as position size
 """
 
 import sys, os, json
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, date
-import pytz
+import pytz, warnings
+warnings.filterwarnings("ignore")
 import yfinance as yf
 import pandas as pd
 
-IST = pytz.timezone("Asia/Kolkata")
-CALLS_PATH = "data/daily_calls.json"
-CAPITAL    = 100_000
-POSITION_PCT = 0.80  # Use 80% of equity per trade
+IST          = pytz.timezone("Asia/Kolkata")
+CALLS_PATH   = "data/daily_calls.json"
+CAPITAL      = 100_000
+POSITION_PCT = 0.80   # Use 80% of equity per trade (20% buffer)
+BROKERAGE    = 0.0006  # 0.06% round-trip (Zerodha intraday ~₹20/side)
 
 
-def get_closing_price(ticker: str) -> float:
+def fetch_full_day(ticker: str) -> pd.DataFrame:
+    """Download complete today's 1-minute bars."""
     try:
-        df = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
+        df = yf.download(ticker, period="1d", interval="1m",
+                         auto_adjust=True, progress=False)
         if isinstance(df.columns, pd.MultiIndex):
             df.columns = df.columns.get_level_values(0)
         if df.empty:
-            return 0.0
+            return pd.DataFrame()
         if df.index.tz is None:
             df.index = df.index.tz_localize("UTC").tz_convert(IST)
         else:
             df.index = df.index.tz_convert(IST)
-        # Use last available price (3:25-3:30 bar)
-        close_bars = df.between_time("15:10", "15:31")
-        if not close_bars.empty:
-            return float(close_bars.iloc[-1]["Close"])
-        return float(df.iloc[-1]["Close"])
+        return df
     except:
-        return 0.0
+        return pd.DataFrame()
 
 
-def check_intraday_exits(ticker: str, entry: float, direction: str,
-                          target: float, stoploss: float) -> dict:
+def find_exit(df: pd.DataFrame, direction: str,
+              entry: float, target: float, stoploss: float) -> dict:
     """
-    Check today's 1-min data to see if SL or Target was hit before close.
-    Returns exit price and reason.
+    Scan every 1-min bar from 9:45 to 15:30.
+    Rule 1: If target hit during day → exit at target (best case)
+    Rule 2: If stop hit before target → exit at stop
+    Rule 3: Otherwise → exit at 15:30 close (mandatory EOD)
     """
-    try:
-        df = yf.download(ticker, period="1d", interval="1m", auto_adjust=True, progress=False)
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-        if df.empty:
-            return {"exit": entry, "reason": "no_data"}
-        if df.index.tz is None:
-            df.index = df.index.tz_localize("UTC").tz_convert(IST)
-        else:
-            df.index = df.index.tz_convert(IST)
+    post_signal = df.between_time("09:45", "15:30")
+    if post_signal.empty:
+        return {"exit": entry, "reason": "no_data_after_signal"}
 
-        # Only look at bars after 9:45
-        post_signal = df.between_time("09:45", "15:30")
+    for ts, bar in post_signal.iterrows():
+        if direction == "BUY":
+            # Target hit first → sell there
+            if bar["High"] >= target:
+                return {"exit": target, "reason": "target_hit",
+                        "time": ts.strftime("%I:%M %p")}
+            # Stop hit
+            if bar["Low"] <= stoploss:
+                return {"exit": stoploss, "reason": "stoploss_hit",
+                        "time": ts.strftime("%I:%M %p")}
+        else:  # SELL / short
+            if bar["Low"] <= target:
+                return {"exit": target, "reason": "target_hit",
+                        "time": ts.strftime("%I:%M %p")}
+            if bar["High"] >= stoploss:
+                return {"exit": stoploss, "reason": "stoploss_hit",
+                        "time": ts.strftime("%I:%M %p")}
 
-        for _, bar in post_signal.iterrows():
-            if direction == "BUY":
-                if bar["Low"] <= stoploss:
-                    return {"exit": stoploss, "reason": "stoploss"}
-                if bar["High"] >= target:
-                    return {"exit": target, "reason": "target"}
-            else:  # SELL
-                if bar["High"] >= stoploss:
-                    return {"exit": stoploss, "reason": "stoploss"}
-                if bar["Low"] <= target:
-                    return {"exit": target, "reason": "target"}
-
-        # EOD exit at closing price
-        eod_price = get_closing_price(ticker)
-        return {"exit": eod_price if eod_price > 0 else entry, "reason": "eod_close"}
-
-    except Exception as e:
-        return {"exit": entry, "reason": f"error: {e}"}
+    # Neither target nor stop hit → close at end of day (3:30 PM)
+    eod_bars = df.between_time("15:25", "15:31")
+    eod_price = float(eod_bars.iloc[-1]["Close"]) if not eod_bars.empty else float(df.iloc[-1]["Close"])
+    return {"exit": eod_price, "reason": "eod_close_3:30PM",
+            "time": "03:30 PM"}
 
 
 def record_eod_pnl():
     today = str(date.today())
-    now   = datetime.now(IST).strftime("%H:%M IST")
+    now   = datetime.now(IST).strftime("%I:%M %p IST")
 
     if not os.path.exists(CALLS_PATH):
-        print("[CLOSE] No calls file found.")
+        print("[CLOSE] No calls file found. Nothing to record.")
         return
 
     with open(CALLS_PATH) as f:
         log = json.load(f)
 
     # Find today's open call
-    today_call = None
-    for call in log["calls"]:
-        if call["date"] == today and call["status"] == "open":
-            today_call = call
-            break
+    today_call = next((c for c in log["calls"]
+                       if c["date"] == today and c["status"] == "open"), None)
 
     if not today_call:
-        print(f"[CLOSE] No open call for {today} — nothing to record.")
+        print(f"[CLOSE] No open position for {today}.")
         return
 
     ticker    = today_call["ticker"]
     direction = today_call["action"]
-    entry     = today_call.get("entry", 0)
-    target    = today_call.get("target", 0)
-    stoploss  = today_call.get("stoploss", 0)
+    entry     = today_call.get("entry") or 0
+    target    = today_call.get("target") or 0
+    stoploss  = today_call.get("stoploss") or 0
     equity    = today_call.get("equity_start", CAPITAL)
 
-    print(f"\n[CLOSE] Recording P&L for {ticker} {direction} @ ₹{entry:,.2f}")
+    if not entry:
+        print(f"[CLOSE] No entry price recorded for {ticker}. Skipping.")
+        return
 
-    # Get exit price
-    exit_info = check_intraday_exits(ticker, entry, direction, target, stoploss)
+    print(f"\n{'='*60}")
+    print(f"  CLOSING POSITION: {direction} {ticker}")
+    print(f"  Entry: ₹{entry:,.2f}  |  Target: ₹{target:,.2f}  |  SL: ₹{stoploss:,.2f}")
+    print(f"{'='*60}")
+
+    # Fetch full day data and find exit
+    df = fetch_full_day(ticker)
+    if df.empty:
+        print(f"  [WARN] No intraday data for {ticker}. Using entry as exit.")
+        exit_info = {"exit": entry, "reason": "no_data", "time": now}
+    else:
+        exit_info = find_exit(df, direction, entry, target, stoploss)
+
     exit_price  = exit_info["exit"]
     exit_reason = exit_info["reason"]
+    exit_time   = exit_info.get("time", now)
 
-    # Calculate P&L
+    # ─── P&L calculation ─────────────────────────────────────────────────────
     position_size = equity * POSITION_PCT
-    shares = position_size / entry if entry > 0 else 0
+    shares        = position_size / entry
 
     if direction == "BUY":
-        raw_pnl = (exit_price - entry) * shares
+        gross_pnl = (exit_price - entry) * shares
     else:
-        raw_pnl = (entry - exit_price) * shares
+        gross_pnl = (entry - exit_price) * shares
 
-    brokerage = position_size * 0.0006  # 0.06% round trip (Zerodha intraday ~₹20 each side)
-    net_pnl   = raw_pnl - brokerage
-    pnl_pct   = (net_pnl / equity) * 100
-    equity_end = equity + net_pnl
+    brokerage_cost = position_size * BROKERAGE
+    net_pnl        = gross_pnl - brokerage_cost
+    pnl_pct        = (net_pnl / equity) * 100
+    equity_end     = equity + net_pnl
 
-    # Update call
-    today_call["exit"]        = round(exit_price, 2)
-    today_call["exit_time"]   = now
-    today_call["exit_reason"] = exit_reason
-    today_call["pnl_pct"]     = round(pnl_pct, 2)
-    today_call["pnl_inr"]     = round(net_pnl, 0)
-    today_call["equity_end"]  = round(equity_end, 0)
-    today_call["status"]      = "closed"
+    # ─── Update call record ──────────────────────────────────────────────────
+    today_call.update({
+        "exit":        round(exit_price, 2),
+        "exit_time":   exit_time,
+        "exit_reason": exit_reason,
+        "pnl_pct":     round(pnl_pct, 2),
+        "pnl_inr":     round(net_pnl, 0),
+        "equity_end":  round(equity_end, 0),
+        "status":      "closed",
+    })
 
-    # Update running equity
+    log["calls"]  = [c if c["date"] != today else today_call for c in log["calls"]]
     log["equity"] = round(equity_end, 0)
-
-    # Update call in log
-    log["calls"] = [c if c["date"] != today else today_call for c in log["calls"]]
 
     with open(CALLS_PATH, "w") as f:
         json.dump(log, f, indent=2, default=str)
 
-    # Summary
-    direction_word = "▲ BUY" if direction == "BUY" else "▼ SELL"
-    result_emoji   = "✅" if net_pnl >= 0 else "❌"
+    # ─── Print result ────────────────────────────────────────────────────────
+    result_icon = "✅ PROFIT" if net_pnl >= 0 else "❌ LOSS"
+    reason_label = {
+        "target_hit":       "🎯 TARGET HIT",
+        "stoploss_hit":     "🛑 STOP HIT",
+        "eod_close_3:30PM": "🔔 EOD CLOSE (3:30 PM)",
+        "no_data":          "⚠ No data",
+    }.get(exit_reason, exit_reason)
 
-    print(f"\n{'='*60}")
-    print(f"  {result_emoji} EOD RESULT: {direction_word} {ticker}")
-    print(f"  Entry:  ₹{entry:,.2f}  →  Exit: ₹{exit_price:,.2f}  [{exit_reason}]")
-    print(f"  P&L:    {pnl_pct:+.2f}%  =  ₹{net_pnl:+,.0f}")
+    print(f"\n  {result_icon}")
+    print(f"  Exit reason: {reason_label}  @ {exit_time}")
+    print(f"  Entry ₹{entry:,.2f}  →  Exit ₹{exit_price:,.2f}")
+    print(f"  P&L:   {pnl_pct:+.2f}%  =  ₹{net_pnl:+,.0f}")
     print(f"  Equity: ₹{equity:,.0f}  →  ₹{equity_end:,.0f}")
     print(f"{'='*60}\n")
 
-    # GitHub Actions summary
-    with open(os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null"), "a") as f:
+    # GitHub Actions step summary
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+    with open(summary_path, "a") as f:
         icon = "✅" if net_pnl >= 0 else "❌"
-        f.write(f"## {icon} EOD Result: {direction} {ticker}\n")
+        f.write(f"## {icon} EOD Result: {direction} {ticker}\n\n")
         f.write(f"| | |\n|---|---|\n")
+        f.write(f"| Exit Reason | {reason_label} |\n")
         f.write(f"| Entry | ₹{entry:,.2f} |\n")
-        f.write(f"| Exit | ₹{exit_price:,.2f} ({exit_reason}) |\n")
-        f.write(f"| P&L | **{pnl_pct:+.2f}% = ₹{net_pnl:+,.0f}** |\n")
+        f.write(f"| Exit | ₹{exit_price:,.2f} @ {exit_time} |\n")
+        f.write(f"| **P&L** | **{pnl_pct:+.2f}% = ₹{net_pnl:+,.0f}** |\n")
         f.write(f"| Running Capital | ₹{equity_end:,.0f} |\n")
 
 
