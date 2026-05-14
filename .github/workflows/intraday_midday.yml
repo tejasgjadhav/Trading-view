@@ -1,0 +1,42 @@
+name: "11:00 AM — Midday Signal"
+
+on:
+  schedule:
+    # 11:00 AM IST = 05:30 UTC  (Mon–Fri)
+    - cron: '30 5 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  midday-signal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Generate 11:00 AM midday signal
+        run: python -m engine.agent --midday
+        env:
+          PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
+          GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+
+      - name: Commit call to repo
+        run: |
+          git config user.name "Trading Bot"
+          git config user.email "trading-bot@github.com"
+          git add data/daily_calls.json
+          git diff --staged --quiet || git commit -m "📊 Midday Signal — $(TZ=Asia/Kolkata date '+%d %b %Y %H:%M IST')"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

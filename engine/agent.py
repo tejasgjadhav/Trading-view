@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import datetime, date
 import pytz
 
-from engine.recommendation import generate_recommendation
+from engine.recommendation import generate_recommendation, generate_midday_recommendation
 from engine.config import CAPITAL, CALLS_PATH, REPORTS_DIR, IST
 
 
@@ -129,13 +129,16 @@ def save_to_calls_log(rec: dict):
         alloc  = rec.get("allocation", {})
         log["calls"] = [c for c in log["calls"] if c["date"] != today]
 
+        session = rec.get("signal_session", "MORNING")
         for i, r in enumerate(calls):
             a_key = "primary" if i == 0 else "secondary"
             a_info = alloc.get(a_key, {})
+            rank = ("midday" if session == "MIDDAY" else ("primary" if i == 0 else "secondary"))
             call = {
                 "date":             today,
                 "signal_time":      datetime.now(IST).strftime("%I:%M %p IST"),
-                "call_rank":        "primary" if i == 0 else "secondary",
+                "signal_session":   session,
+                "call_rank":        rank,
                 "ticker":           r["ticker"],
                 "action":           "BUY",
                 "entry":            r["entry"],
@@ -228,13 +231,23 @@ def run_agent(force_fresh: bool = False):
     return rec
 
 
+def run_midday_agent():
+    rec = generate_midday_recommendation()
+    print_recommendation(rec)
+    save_to_calls_log(rec)
+    return rec
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--backtest", action="store_true", help="Backtest only")
     parser.add_argument("--fresh",    action="store_true", help="Force fresh backtest")
+    parser.add_argument("--midday",   action="store_true", help="Run 11 AM midday scan")
     args = parser.parse_args()
 
-    if args.backtest:
+    if args.midday:
+        run_midday_agent()
+    elif args.backtest:
         from engine.backtest import run_all_backtests
         from engine.config import CASH_EQUITIES
         print("Running 2-year backtest on all stocks (ranking by max 1-day return)...")

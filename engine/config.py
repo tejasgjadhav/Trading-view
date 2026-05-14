@@ -42,10 +42,17 @@ WATCHLIST = [
 ]
 
 # --- TIMING (IST) ---
-ENTRY_TIME        = "09:45"   # Never before this
+ENTRY_TIME        = "09:45"   # Morning ORB entry
+ENTRY_TIME_MIDDAY = "11:00"   # Midday continuation entry
 KILL_SWITCH_TIME  = "15:20"   # Force-close all positions at 3:20 PM (10 min before close)
 MARKET_OPEN       = "09:15"
 MARKET_CLOSE      = "15:30"
+
+# Bar indices in 5-min data (bar 0 = 9:15 AM, each bar = 5 min)
+# 9:45 AM signal  → bar 5 close (9:40–9:44 AM, last complete bar at 9:45 AM)
+# 11:00 AM signal → bar 20 close (10:55–10:59 AM, last complete bar at 11:00 AM)
+MORNING_ENTRY_BAR = 5
+MIDDAY_ENTRY_BAR  = 20
 
 # --- RISK PARAMETERS ---
 CAPITAL              = 100_000   # INR — user set ₹1 lakh

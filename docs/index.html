@@ -114,7 +114,7 @@ a{color:#58a6ff;text-decoration:none}
 <header>
   <div>
     <h1>📈 NSE Intraday Dashboard</h1>
-    <div class="sub">7-Signal Quant Engine · ORB + VWAP · Signal @ 9:45 AM IST · Auto-tracked daily</div>
+    <div class="sub">7-Signal Quant Engine · ORB + VWAP · Signals @ 9:45 AM &amp; 11:00 AM IST · Auto-tracked daily</div>
   </div>
   <div>
     <div id="clock">—<div class="tz">IST</div></div>
@@ -124,16 +124,31 @@ a{color:#58a6ff;text-decoration:none}
 
 <div class="container">
 
-  <!-- TODAY'S CALL -->
+  <!-- TODAY'S CALLS -->
   <section>
-    <h2>Today's Call <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
+    <h2>9:45 AM Signal <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
     <div id="call-hero" class="call-hero hold">
       <div class="empty">Loading today's call...</div>
     </div>
-    <!-- Secondary call (if 2 signals today) -->
     <div id="call-secondary" style="display:none;margin-top:12px"></div>
-    <!-- Allocation commentary box -->
     <div id="alloc-box" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
+  </section>
+
+  <!-- 11 AM MIDDAY CALL -->
+  <section>
+    <h2>11:00 AM Signal <span style="color:#8b949e;font-weight:400;font-size:12px">· Remaining capital deployed if setup found</span></h2>
+    <div id="call-midday" class="call-hero hold">
+      <div class="empty">Midday signal runs at 11:00 AM IST — appears here after market opens.</div>
+    </div>
+    <div id="alloc-midday" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
+  </section>
+
+  <!-- TODAY'S CONSOLIDATED P&L -->
+  <section>
+    <h2>Today's Result <span style="color:#8b949e;font-weight:400;font-size:12px">· Combined 9:45 AM + 11:00 AM</span></h2>
+    <div id="today-consolidated" style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px">
+      <div class="empty">P&L records at 3:20 PM IST after positions close.</div>
+    </div>
   </section>
 
   <!-- EQUITY STATS -->
@@ -164,7 +179,7 @@ a{color:#58a6ff;text-decoration:none}
       <table>
         <thead>
           <tr>
-            <th>Date</th><th>Stock</th><th>Call</th>
+            <th>Date</th><th>Session</th><th>Stock</th><th>Call</th>
             <th>Entry</th><th>Target</th><th>SL</th><th>Exit</th>
             <th>P&L %</th><th>P&L ₹</th><th>Equity</th><th>Status</th>
           </tr>
@@ -185,7 +200,7 @@ a{color:#58a6ff;text-decoration:none}
 </div>
 
 <footer>
-  NSE India · Signal at 9:45 AM IST · P&L recorded at 3:35 PM IST · Auto-runs via GitHub Actions ·
+  NSE India · Signals at 9:45 AM &amp; 11:00 AM IST · P&L recorded at 3:20 PM IST · Auto-runs via GitHub Actions ·
   <a href="https://github.com/tejasgjadhav/Trade-Intraday" target="_blank">github.com/tejasgjadhav/Trade-Intraday</a><br>
   <span style="color:#f85149">⚠ Educational purposes only. Not financial advice.</span>
 </footer>
@@ -321,19 +336,20 @@ function buildCallHTML(call, label=''){
 
 // ─── Today's Call ────────────────────────────────────────────────────────────
 function renderCall(todayCalls){
-  // todayCalls: array of calls for today (1 or 2)
-  const primary = Array.isArray(todayCalls) ? todayCalls[0] : todayCalls;
-  const secondary = Array.isArray(todayCalls) && todayCalls.length > 1 ? todayCalls[1] : null;
+  const morning = todayCalls.filter(c=>c.signal_session!=='MIDDAY');
+  const midday  = todayCalls.filter(c=>c.signal_session==='MIDDAY');
+
+  // 9:45 AM
+  const primary   = morning[0] || {action:'HOLD', reason:'No 9:45 AM call today'};
+  const secondary = morning[1] || null;
 
   document.getElementById('call-date').textContent=primary.date?`· ${primary.date}`:'';
-
   const a=primary.action||'HOLD';
   const cls=a==='BUY'?'buy':a==='SELL'?'sell':'hold';
   const heroEl=document.getElementById('call-hero');
   heroEl.className=`call-hero ${cls}`;
   heroEl.innerHTML=buildCallHTML(primary, secondary?'PRIMARY':'');
 
-  // Secondary call
   const secEl=document.getElementById('call-secondary');
   if(secondary){
     secEl.style.display='block';
@@ -343,20 +359,104 @@ function renderCall(todayCalls){
     secEl.style.display='none';
   }
 
-  // Allocation box
   const allocEl=document.getElementById('alloc-box');
   const note=primary.allocation_note||secondary?.allocation_note||'';
   if(note && a==='BUY'){
     allocEl.style.display='block';
     allocEl.innerHTML=`
-      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">
-        Capital Allocation Commentary
-      </div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">Capital Allocation Commentary</div>
       <div style="font-size:13px;color:#c9d1d9;line-height:1.6">${note.replace(/►/g,'<br>►').replace(/^<br>/,'')}</div>
     `;
   } else {
     allocEl.style.display='none';
   }
+
+  // 11:00 AM midday call
+  const middayEl=document.getElementById('call-midday');
+  const middayAllocEl=document.getElementById('alloc-midday');
+  if(midday.length>0){
+    const mc=midday[0];
+    const ma=mc.action||'HOLD';
+    const mcls=ma==='BUY'?'buy':'hold';
+    middayEl.className=`call-hero ${mcls}`;
+    middayEl.innerHTML=buildCallHTML(mc,'11 AM');
+    const mn=mc.allocation_note||'';
+    if(mn && ma==='BUY'){
+      middayAllocEl.style.display='block';
+      middayAllocEl.innerHTML=`
+        <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">11 AM Allocation Commentary</div>
+        <div style="font-size:13px;color:#c9d1d9;line-height:1.6">${mn.replace(/►/g,'<br>►').replace(/^<br>/,'')}</div>
+      `;
+    } else {
+      middayAllocEl.style.display='none';
+    }
+  } else {
+    middayEl.className='call-hero hold';
+    middayEl.innerHTML='<div class="empty">Midday signal runs at 11:00 AM IST — appears here after scan completes.</div>';
+    middayAllocEl.style.display='none';
+  }
+}
+
+// ─── Consolidated daily P&L ───────────────────────────────────────────────────
+function renderConsolidated(todayCalls){
+  const el=document.getElementById('today-consolidated');
+  const closed=todayCalls.filter(c=>c.status==='closed'&&c.pnl_inr!=null);
+  if(!closed.length){
+    el.innerHTML='<div class="empty">P&L records at 3:20 PM IST after positions close.</div>';
+    return;
+  }
+  const totalPnl=closed.reduce((s,c)=>s+(c.pnl_inr||0),0);
+  const equityEnd=closed[closed.length-1].equity_end||0;
+  const equityStart=closed[0].equity_start||100000;
+  const pct=((totalPnl/equityStart)*100).toFixed(2);
+  const isWin=totalPnl>=0;
+  const color=isWin?'#3fb950':'#f85149';
+  const icon=isWin?'✅':'❌';
+
+  const rows=closed.map(c=>{
+    const p=c.pnl_inr||0;
+    const pc=isWin?'pnl-w':'pnl-l';
+    const rsn={
+      'target_hit':'🎯 Target',
+      'stoploss_hit':'🛑 Stop',
+      'force_close_3:20PM':'🔔 Force close',
+      'no_data':'⚠ No data',
+    }[c.exit_reason]||c.exit_reason||'—';
+    const session=c.signal_session==='MIDDAY'?'11 AM':'9:45 AM';
+    return `<tr>
+      <td style="color:#8b949e;font-size:12px">${session}</td>
+      <td><strong>${c.ticker||'—'}</strong></td>
+      <td>₹${(c.entry||0).toLocaleString('en-IN')}</td>
+      <td>₹${(c.exit||0).toLocaleString('en-IN')}</td>
+      <td>${rsn}</td>
+      <td class="${p>=0?'pnl-w':'pnl-l'}">${p>=0?'+':''}₹${Math.round(Math.abs(p)).toLocaleString('en-IN')}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+      <div style="font-size:28px;font-weight:800;color:${color}">${icon} ${pct>=0?'+':''}${pct}%</div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:${color}">${totalPnl>=0?'+':''}₹${Math.round(Math.abs(totalPnl)).toLocaleString('en-IN')}</div>
+        <div style="font-size:12px;color:#8b949e">Net P&L today · ${closed.length} trade(s) closed</div>
+      </div>
+      <div style="margin-left:auto;text-align:right">
+        <div style="font-size:13px;color:#8b949e">Running Capital</div>
+        <div style="font-size:18px;font-weight:700;color:#58a6ff">₹${(equityEnd||0).toLocaleString('en-IN')}</div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#1c2128">
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Session</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Stock</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Entry</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Exit</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Reason</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">P&L ₹</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 // ─── Stats ───────────────────────────────────────────────────────────────────
@@ -497,8 +597,10 @@ function renderTradeLog(calls){
     const pnlInr=c.pnl_inr!=null?(c.pnl_inr>=0?`<span class="pnl-w">+₹${Math.round(c.pnl_inr).toLocaleString('en-IN')}</span>`:`<span class="pnl-l">-₹${Math.abs(Math.round(c.pnl_inr)).toLocaleString('en-IN')}</span>`):'—';
     const statusCls=c.status==='open'?'pill-open':c.status==='hold'?'pill-hold':'pill-closed';
     const eq=c.equity_end||c.equity_start||'—';
+    const session=c.signal_session==='MIDDAY'?'<span style="color:#d29922;font-size:11px;font-weight:600">11 AM</span>':'<span style="color:#58a6ff;font-size:11px;font-weight:600">9:45 AM</span>';
     return `<tr>
       <td>${c.date}</td>
+      <td>${session}</td>
       <td><strong>${c.ticker||'—'}</strong></td>
       <td><span class="pill ${actionCls}">${c.action}</span></td>
       <td>${c.entry?`₹${c.entry.toLocaleString('en-IN')}`:'—'}</td>
@@ -564,12 +666,13 @@ async function loadAll(){
     const equity=dc.equity||100000;
     const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 
-    // Group today's calls (may be 2 if dual-signal day)
+    // Group today's calls (9:45 AM + 11:00 AM)
     const todayCalls=calls.filter(c=>c.date===today);
     const displayCalls=todayCalls.length>0?todayCalls:
       (calls.length>0?[calls[calls.length-1]]:[{action:'HOLD',reason:'No call yet — signal runs at 9:45 AM IST on weekdays',ticker:'—'}]);
 
     renderCall(displayCalls);
+    renderConsolidated(todayCalls);
     renderStats(calls,equity);
     renderTradeLog(calls);
 

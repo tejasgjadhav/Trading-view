@@ -35,7 +35,8 @@ def compute_rsi(close: pd.Series, period: int = RSI_PERIOD) -> float:
 
 
 def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
-                    pdh: float, pdl: float, pdc: float) -> dict:
+                    pdh: float, pdl: float, pdc: float,
+                    entry_bar_idx: int = 5) -> dict:
     """
     Returns:
     {
@@ -49,17 +50,16 @@ def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
     """
     signals = {}
 
+    min_bars = entry_bar_idx + 1
     if df_intraday.empty or len(df_intraday) < 6:
         return {"direction": "NEUTRAL", "signals_aligned": 0,
                 "confidence": 0, "signals_detail": {}, "regime": "UNKNOWN"}
 
-    # ── Always anchor to 9:45 AM bar (bar index 5) ──────────────────────────
-    # Bar 0 = 9:15 AM, Bar 5 = 9:40–9:44 AM (last bar of opening range).
-    # When agent runs at 9:45 AM, iloc[-1] == iloc[5]. When run later in the
-    # day, iloc[-1] is the afternoon price — anchoring to bar 5 ensures the
-    # entry price is always the 9:45 AM price, not the run-time price.
-    orb_idx       = min(5, len(df_intraday) - 1)
-    current_price = float(df_intraday.iloc[orb_idx]["Close"])
+    # ── ORB window: always bars 0-5 (9:15–9:44 AM opening range) ────────────
+    # Entry price bar: parameterised — bar 5 for 9:45 AM, bar 20 for 11 AM.
+    orb_idx   = min(5, len(df_intraday) - 1)
+    entry_idx = min(entry_bar_idx, len(df_intraday) - 1)
+    current_price = float(df_intraday.iloc[entry_idx]["Close"])
 
     # 1. PDC Position
     signals["above_pdc"] = 1 if current_price > pdc else -1
@@ -75,16 +75,15 @@ def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
     else:
         signals["orb"] = 0
 
-    # 3. VWAP — anchored to the 9:45 AM window (first 6 bars)
-    vwap_window  = df_intraday.iloc[:orb_idx + 1]
+    # 3. VWAP — anchored to the entry window (9:45 AM = bars 0-5; 11 AM = bars 0-20)
+    vwap_window  = df_intraday.iloc[:entry_idx + 1]
     vwap         = compute_vwap(vwap_window)
     current_vwap = float(vwap.iloc[-1])
     deviation    = (current_price - current_vwap) / current_vwap
-    # Trend mode: above VWAP = bullish
     signals["vwap"] = 1 if current_price > current_vwap else -1
 
-    # 4. RSI — computed on the 9:45 AM window only
-    rsi_val = compute_rsi(df_intraday["Close"].iloc[:orb_idx + 1])
+    # 4. RSI — computed up to entry bar
+    rsi_val = compute_rsi(df_intraday["Close"].iloc[:entry_idx + 1])
     if rsi_val < RSI_OVERSOLD:
         signals["rsi"] = 1
     elif rsi_val > RSI_OVERBOUGHT:
@@ -92,17 +91,17 @@ def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
     else:
         signals["rsi"] = 0
 
-    # 5. EMA Trend — computed on the 9:45 AM window only
-    orb_close    = df_intraday["Close"].iloc[:orb_idx + 1]
-    ema_fast_s   = orb_close.ewm(span=EMA_FAST, adjust=False).mean()
-    ema_slow_s   = orb_close.ewm(span=EMA_SLOW, adjust=False).mean()
+    # 5. EMA Trend — computed up to entry bar
+    entry_close  = df_intraday["Close"].iloc[:entry_idx + 1]
+    ema_fast_s   = entry_close.ewm(span=EMA_FAST, adjust=False).mean()
+    ema_slow_s   = entry_close.ewm(span=EMA_SLOW, adjust=False).mean()
     ema_fast_v   = float(ema_fast_s.iloc[-1])
     ema_slow_v   = float(ema_slow_s.iloc[-1])
     signals["ema_trend"] = 1 if ema_fast_v > ema_slow_v else -1
 
-    # 6. Volume Spike — compare bar-5 volume against average of prior bars
-    avg_vol = df_intraday["Volume"].iloc[:orb_idx].rolling(10, min_periods=3).mean()
-    cur_vol = float(df_intraday["Volume"].iloc[orb_idx])
+    # 6. Volume Spike — compare entry bar volume against average of prior bars
+    avg_vol = df_intraday["Volume"].iloc[:entry_idx].rolling(10, min_periods=3).mean()
+    cur_vol = float(df_intraday["Volume"].iloc[entry_idx])
     avg_v   = float(avg_vol.iloc[-1]) if not avg_vol.empty and not pd.isna(avg_vol.iloc[-1]) and avg_vol.iloc[-1] > 0 else 1
     signals["volume_spike"] = 1 if cur_vol > VOLUME_SURGE_MULTIPLIER * avg_v else 0
 

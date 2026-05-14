@@ -23,7 +23,8 @@ from engine.config import (
     CASH_EQUITIES, WATCHLIST, MIN_WIN_RATE_THRESHOLD,
     MIN_SIGNALS_REQUIRED, MIN_SIGNALS_WATCHLIST,
     MIN_REWARD_RISK, MIN_RETURN_PCT, CAPITAL, KILL_SWITCH_TIME,
-    ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH
+    ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH,
+    MORNING_ENTRY_BAR, MIDDAY_ENTRY_BAR
 )
 from engine.data_fetcher import fetch_historical, fetch_intraday, get_previous_day_levels
 from engine.signals import compute_signals
@@ -88,17 +89,18 @@ def compute_composite_scores(candidates: list) -> list:
 
 # ── Live signal scanner ───────────────────────────────────────────────────────
 
-def _scan_live(tickers: list, bt_lookup: dict = None) -> list:
+def _scan_live(tickers: list, bt_lookup: dict = None, entry_bar_idx: int = MORNING_ENTRY_BAR) -> list:
     results = []
     for ticker in tickers:
         try:
             df_daily = fetch_historical(ticker, years=0.5)
             df_5min  = fetch_intraday(ticker, interval="5m", period="1d")
-            if df_5min.empty or len(df_5min) < 4:
+            if df_5min.empty or len(df_5min) < max(6, entry_bar_idx + 1):
                 continue
             levels = get_previous_day_levels(ticker, df_daily)
             sig    = compute_signals(df_daily, df_5min,
-                                     levels["pdh"], levels["pdl"], levels["pdc"])
+                                     levels["pdh"], levels["pdl"], levels["pdc"],
+                                     entry_bar_idx=entry_bar_idx)
             sig["ticker"] = ticker
             bt = (bt_lookup or {}).get(ticker, {})
             sig["bt_win_rate"]        = float(bt.get("win_rate", 0) or 0)
@@ -398,3 +400,152 @@ def generate_recommendation(force_fresh_backtest: bool = False) -> dict:
         return _build_result(pool[:1], now_ist, CONVICTION_EXPLO)
 
     return _no_trade("No data available from any source. Check NSE / yfinance connectivity.")
+
+
+# ── Midday helpers ────────────────────────────────────────────────────────────
+
+def _get_open_positions_today() -> list:
+    """Return list of open calls for today from daily_calls.json."""
+    from datetime import date
+    today = str(date.today())
+    if not os.path.exists(CALLS_PATH):
+        return []
+    try:
+        with open(CALLS_PATH) as f:
+            log = json.load(f)
+        return [c for c in log.get("calls", [])
+                if c.get("date") == today and c.get("status") == "open"]
+    except Exception:
+        return []
+
+
+def _remaining_capital() -> float:
+    """Capital not yet deployed in today's open positions."""
+    open_pos = _get_open_positions_today()
+    deployed = sum(c.get("invest_inr", 0) or 0 for c in open_pos)
+    log_equity = CAPITAL
+    if os.path.exists(CALLS_PATH):
+        try:
+            with open(CALLS_PATH) as f:
+                log = json.load(f)
+            log_equity = log.get("equity", CAPITAL)
+        except Exception:
+            pass
+    return max(0.0, log_equity - deployed)
+
+
+# ── Midday entry (11:00 AM) ───────────────────────────────────────────────────
+
+def generate_midday_recommendation() -> dict:
+    """
+    11:00 AM midday scan — same 4-tier logic, anchored to bar 20 (~10:55 AM price).
+    Capital is whatever is NOT already deployed in the 9:45 AM call.
+    Skips stocks already held in an open position.
+    """
+    now_ist = datetime.now(IST)
+
+    avail = _remaining_capital()
+    open_tickers = {c["ticker"] for c in _get_open_positions_today()}
+
+    print(f"\n{'='*65}")
+    print(f"  MIDDAY SIGNAL ENGINE — {now_ist.strftime('%d %b %Y  %I:%M %p IST')}")
+    print(f"  Available capital: ₹{avail:,.0f}  |  Entry bar: ~10:55 AM (bar 20)")
+    print(f"  Already open: {open_tickers or 'none'}")
+    print(f"{'='*65}\n")
+
+    if avail < 5000:
+        return _no_trade("Less than ₹5,000 available — capital fully deployed at 9:45 AM.")
+
+    def _filtered(tickers):
+        return [t for t in tickers if t not in open_tickers]
+
+    # TIER 1/2 — 2-year backtest gate
+    print(f"[TIER 1/2] 2-year backtest (≥{MIN_WIN_RATE_THRESHOLD:.0%} WR)...")
+    bt_df = load_or_run_backtest(CASH_EQUITIES, force_fresh=False)
+    bt_lookup = {}
+    if not bt_df.empty:
+        for _, row in bt_df.iterrows():
+            t = row["ticker"]
+            if t not in bt_lookup or row.get("max_1day_return", 0) > bt_lookup[t].get("max_1day_return", 0):
+                bt_lookup[t] = row.to_dict()
+
+        top_tickers = _filtered(list(bt_df["ticker"].unique()[:15]))
+        if top_tickers:
+            sigs   = _scan_live(top_tickers, bt_lookup, entry_bar_idx=MIDDAY_ENTRY_BAR)
+            scored = compute_composite_scores(sigs)
+
+            tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            if tier1:
+                print(f"  [TIER 1] {len(tier1)} stock(s) — midday continuation")
+                _print_candidates(tier1[:2], "TIER 1 MIDDAY")
+                return _build_result_midday(tier1[:1], now_ist, CONVICTION_HIGH, avail)
+
+            tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
+            if tier2:
+                print(f"  [TIER 2] {len(tier2)} stock(s) — midday with reduced signals")
+                return _build_result_midday(tier2[:1], now_ist, CONVICTION_MEDIUM, avail)
+
+    # TIER 3 — 60-day ORB
+    print(f"\n[TIER 3] 60-day ORB backtest — midday scan...")
+    orb_lookup = _load_orb_backtest()
+    if orb_lookup:
+        top_orb = _filtered(sorted(orb_lookup, key=lambda t: orb_lookup[t].get("max_1day_return", 0), reverse=True)[:20])
+        if top_orb:
+            sigs   = _scan_live(top_orb, orb_lookup, entry_bar_idx=MIDDAY_ENTRY_BAR)
+            scored = compute_composite_scores(sigs)
+            best   = [s for s in scored if s.get("current_price", 0) > 0]
+            if best:
+                return _build_result_midday(best[:1], now_ist, CONVICTION_BEST, avail)
+
+    # TIER 4 — pure live
+    print(f"\n[TIER 4] EXPLORATORY midday scan...")
+    sigs   = _scan_live(_filtered(WATCHLIST), {}, entry_bar_idx=MIDDAY_ENTRY_BAR)
+    scored = compute_composite_scores(sigs)
+    pool   = [s for s in scored if s.get("direction") == "LONG"] or scored
+    if pool:
+        return _build_result_midday(pool[:1], now_ist, CONVICTION_EXPLO, avail)
+
+    return _no_trade("No midday setup found. Market may be choppy or capital fully deployed.")
+
+
+def _build_result_midday(top_sigs: list, now_ist: datetime, conviction: str, avail_capital: float) -> dict:
+    """Same as _build_result but uses available capital for sizing."""
+    built = []
+    for s in top_sigs:
+        c = _build_call(s, now_ist, conviction)
+        if c:
+            # Re-size using available capital
+            rm = RiskManager(capital=avail_capital)
+            entry = c["entry"]
+            stop  = c["stop_loss"]
+            sizing = rm.kelly_position(
+                win_rate=max(s.get("bt_win_rate", 0.5), 0.5),
+                entry=entry, stop=stop
+            )
+            c.update({
+                "shares":         sizing["shares"],
+                "position_value": sizing["position_value"],
+                "risk_amount":    sizing["risk_amount"],
+                "risk_pct":       sizing["risk_pct"],
+                "kelly_pct":      sizing["kelly_pct"],
+            })
+            built.append(c)
+
+    if not built and top_sigs:
+        s = top_sigs[0]
+        if s.get("current_price", 0) > 0:
+            built.append(_force_call(s, now_ist, conviction))
+
+    if not built:
+        return _no_trade("Could not build valid midday levels.")
+
+    allocation = _allocation_commentary(built, capital=avail_capital)
+    return {
+        "action":     "BUY",
+        "calls":      built,
+        "allocation": allocation,
+        "conviction": conviction,
+        "signal_session": "MIDDAY",
+        "timestamp":  now_ist.isoformat(),
+        **built[0],
+    }

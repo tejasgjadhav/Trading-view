@@ -80,80 +80,6 @@ def find_exit(df: pd.DataFrame, direction: str,
 
 
 def record_eod_pnl():
-    today = str(date.today())
-    now   = datetime.now(IST).strftime("%I:%M %p IST")
-
-    if not os.path.exists(CALLS_PATH):
-        print("[CLOSE] No calls file found. Nothing to record.")
-        return
-
-    with open(CALLS_PATH) as f:
-        log = json.load(f)
-
-    # Find today's open call
-    today_call = next((c for c in log["calls"]
-                       if c["date"] == today and c["status"] == "open"), None)
-
-    if not today_call:
-        print(f"[CLOSE] No open position for {today}.")
-        return
-
-    ticker    = today_call["ticker"]
-    direction = today_call["action"]
-    entry     = today_call.get("entry") or 0
-    target    = today_call.get("target") or 0
-    stoploss  = today_call.get("stoploss") or 0
-    equity    = today_call.get("equity_start", CAPITAL)
-
-    if not entry:
-        print(f"[CLOSE] No entry price recorded for {ticker}. Skipping.")
-        return
-
-    print(f"\n{'='*60}")
-    print(f"  CLOSING POSITION: {direction} {ticker}")
-    print(f"  Entry: ₹{entry:,.2f}  |  Target: ₹{target:,.2f}  |  SL: ₹{stoploss:,.2f}")
-    print(f"{'='*60}")
-
-    # Fetch full day data and find exit
-    df = fetch_full_day(ticker)
-    if df.empty:
-        print(f"  [WARN] No intraday data for {ticker}. Using entry as exit.")
-        exit_info = {"exit": entry, "reason": "no_data", "time": now}
-    else:
-        exit_info = find_exit(df, direction, entry, target, stoploss)
-
-    exit_price  = exit_info["exit"]
-    exit_reason = exit_info["reason"]
-    exit_time   = exit_info.get("time", now)
-
-    # ─── P&L calculation ─────────────────────────────────────────────────────
-    position_size = equity * POSITION_PCT
-    shares        = position_size / entry
-
-    if direction == "BUY":
-        gross_pnl = (exit_price - entry) * shares
-    else:
-        gross_pnl = (entry - exit_price) * shares
-
-    brokerage_cost = position_size * BROKERAGE
-    net_pnl        = gross_pnl - brokerage_cost
-    pnl_pct        = (net_pnl / equity) * 100
-    equity_end     = equity + net_pnl
-
-    # ─── Update call record ──────────────────────────────────────────────────
-    today_call.update({
-        "exit":        round(exit_price, 2),
-        "exit_time":   exit_time,
-        "exit_reason": exit_reason,
-        "pnl_pct":     round(pnl_pct, 2),
-        "pnl_inr":     round(net_pnl, 0),
-        "equity_end":  round(equity_end, 0),
-        "status":      "closed",
-    })
-
-    log["calls"]  = [c if c["date"] != today else today_call for c in log["calls"]]
-    log["equity"] = round(equity_end, 0)
-
     import math
 
     def _clean(obj):
@@ -165,36 +91,145 @@ def record_eod_pnl():
             return None
         return obj
 
+    REASON_LABEL = {
+        "target_hit":         "🎯 TARGET HIT",
+        "stoploss_hit":       "🛑 STOP HIT",
+        "force_close_3:20PM": "🔔 FORCE CLOSE (3:20 PM)",
+        "no_data":            "⚠ No data",
+    }
+
+    today = str(date.today())
+    now   = datetime.now(IST).strftime("%I:%M %p IST")
+
+    if not os.path.exists(CALLS_PATH):
+        print("[CLOSE] No calls file found. Nothing to record.")
+        return
+
+    with open(CALLS_PATH) as f:
+        log = json.load(f)
+
+    # ── Find ALL open calls today (9:45 AM + 11 AM) ──────────────────────────
+    open_calls = [c for c in log["calls"]
+                  if c.get("date") == today and c.get("status") == "open"]
+
+    if not open_calls:
+        print(f"[CLOSE] No open positions for {today}.")
+        return
+
+    equity_start = log.get("equity", CAPITAL)
+    total_net_pnl = 0.0
+
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
+
+    print(f"\n{'='*65}")
+    print(f"  EOD CLOSE — {today}  |  {len(open_calls)} position(s) to close")
+    print(f"  Starting equity: ₹{equity_start:,.0f}")
+    print(f"{'='*65}")
+
+    # Cache fetched DataFrames to avoid double-downloading same ticker
+    df_cache = {}
+
+    for call in open_calls:
+        ticker   = call.get("ticker", "")
+        direction= call.get("action", "BUY")
+        entry    = call.get("entry") or 0
+        target   = call.get("target") or 0
+        stoploss = call.get("stoploss") or 0
+        invested = call.get("invest_inr") or call.get("position_value") or 0
+        shares_held = call.get("shares") or (invested / entry if entry else 0)
+        session  = call.get("signal_session", "MORNING")
+
+        if not entry:
+            print(f"  [SKIP] {ticker} — no entry price. Marking closed at entry.")
+            call.update({"exit": entry, "exit_time": now, "exit_reason": "no_entry",
+                         "pnl_pct": 0, "pnl_inr": 0, "equity_end": equity_start, "status": "closed"})
+            continue
+
+        print(f"\n  [{session}] Closing {direction} {ticker}")
+        print(f"  Entry ₹{entry:,.2f} | Target ₹{target:,.2f} | SL ₹{stoploss:,.2f} | Shares {int(shares_held)}")
+
+        if ticker not in df_cache:
+            df_cache[ticker] = fetch_full_day(ticker)
+        df = df_cache[ticker]
+
+        if df.empty:
+            exit_info = {"exit": entry, "reason": "no_data", "time": now}
+        else:
+            exit_info = find_exit(df, direction, entry, target, stoploss)
+
+        exit_price  = exit_info["exit"]
+        exit_reason = exit_info["reason"]
+        exit_time   = exit_info.get("time", now)
+
+        # ── P&L using actual shares (Kelly-sized from morning/midday) ─────────
+        shares_used = max(1, int(shares_held)) if shares_held else max(1, int(invested / entry))
+        if direction == "BUY":
+            gross_pnl = (exit_price - entry) * shares_used
+        else:
+            gross_pnl = (entry - exit_price) * shares_used
+
+        brokerage_cost = (shares_used * entry) * BROKERAGE
+        net_pnl        = gross_pnl - brokerage_cost
+        pnl_pct_call   = round((net_pnl / equity_start) * 100, 2)
+        total_net_pnl += net_pnl
+
+        running_equity = equity_start + total_net_pnl
+
+        call.update({
+            "exit":        round(exit_price, 2),
+            "exit_time":   exit_time,
+            "exit_reason": exit_reason,
+            "pnl_pct":     pnl_pct_call,
+            "pnl_inr":     round(net_pnl, 0),
+            "equity_end":  round(running_equity, 0),
+            "status":      "closed",
+        })
+
+        rl = REASON_LABEL.get(exit_reason, exit_reason)
+        icon = "✅" if net_pnl >= 0 else "❌"
+        print(f"  {icon} {rl} @ {exit_time}")
+        print(f"  ₹{entry:,.2f} → ₹{exit_price:,.2f}  |  P&L: {pnl_pct_call:+.2f}% = ₹{net_pnl:+,.0f}")
+
+        with open(summary_path, "a") as f:
+            f.write(f"## {icon} [{session}] {direction} {ticker}\n\n")
+            f.write(f"| | |\n|---|---|\n")
+            f.write(f"| Exit Reason | {rl} |\n")
+            f.write(f"| Entry | ₹{entry:,.2f} |\n")
+            f.write(f"| Exit | ₹{exit_price:,.2f} @ {exit_time} |\n")
+            f.write(f"| **P&L** | **{pnl_pct_call:+.2f}% = ₹{net_pnl:+,.0f}** |\n\n")
+
+    # ── Consolidated result ───────────────────────────────────────────────────
+    equity_end = equity_start + total_net_pnl
+    consolidated_pct = round((total_net_pnl / equity_start) * 100, 2)
+
+    result_icon = "✅ NET PROFIT" if total_net_pnl >= 0 else "❌ NET LOSS"
+    print(f"\n{'─'*65}")
+    print(f"  {result_icon}")
+    print(f"  Total P&L: {consolidated_pct:+.2f}% = ₹{total_net_pnl:+,.0f}")
+    print(f"  Equity: ₹{equity_start:,.0f} → ₹{equity_end:,.0f}")
+    print(f"{'='*65}\n")
+
+    with open(summary_path, "a") as f:
+        icon2 = "✅" if total_net_pnl >= 0 else "❌"
+        f.write(f"---\n## {icon2} CONSOLIDATED: {consolidated_pct:+.2f}% = ₹{total_net_pnl:+,.0f}\n")
+        f.write(f"**Running Capital: ₹{equity_end:,.0f}**\n")
+
+    # ── Save ──────────────────────────────────────────────────────────────────
+    # Update all calls in log
+    open_map = {id(c): c for c in open_calls}
+    updated = []
+    for c in log["calls"]:
+        match = next((oc for oc in open_calls if oc.get("date") == c.get("date")
+                      and oc.get("ticker") == c.get("ticker")
+                      and oc.get("call_rank") == c.get("call_rank")), None)
+        updated.append(match if match else c)
+    log["calls"]  = updated
+    log["equity"] = round(equity_end, 0)
+
     with open(CALLS_PATH, "w") as f:
         json.dump(_clean(log), f, indent=2, default=str)
 
-    # ─── Print result ────────────────────────────────────────────────────────
-    result_icon = "✅ PROFIT" if net_pnl >= 0 else "❌ LOSS"
-    reason_label = {
-        "target_hit":       "🎯 TARGET HIT",
-        "stoploss_hit":     "🛑 STOP HIT",
-        "force_close_3:20PM": "🔔 FORCE CLOSE (3:20 PM)",
-        "no_data":          "⚠ No data",
-    }.get(exit_reason, exit_reason)
-
-    print(f"\n  {result_icon}")
-    print(f"  Exit reason: {reason_label}  @ {exit_time}")
-    print(f"  Entry ₹{entry:,.2f}  →  Exit ₹{exit_price:,.2f}")
-    print(f"  P&L:   {pnl_pct:+.2f}%  =  ₹{net_pnl:+,.0f}")
-    print(f"  Equity: ₹{equity:,.0f}  →  ₹{equity_end:,.0f}")
-    print(f"{'='*60}\n")
-
-    # GitHub Actions step summary
-    summary_path = os.environ.get("GITHUB_STEP_SUMMARY", "/dev/null")
-    with open(summary_path, "a") as f:
-        icon = "✅" if net_pnl >= 0 else "❌"
-        f.write(f"## {icon} EOD Result: {direction} {ticker}\n\n")
-        f.write(f"| | |\n|---|---|\n")
-        f.write(f"| Exit Reason | {reason_label} |\n")
-        f.write(f"| Entry | ₹{entry:,.2f} |\n")
-        f.write(f"| Exit | ₹{exit_price:,.2f} @ {exit_time} |\n")
-        f.write(f"| **P&L** | **{pnl_pct:+.2f}% = ₹{net_pnl:+,.0f}** |\n")
-        f.write(f"| Running Capital | ₹{equity_end:,.0f} |\n")
+    print(f"[CLOSE] Saved. Running equity: ₹{equity_end:,.0f}")
 
 
 if __name__ == "__main__":
