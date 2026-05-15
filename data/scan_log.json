@@ -18,6 +18,16 @@
         4
       ],
       "conviction": "BEST MATCH"
+    },
+    {
+      "date": "2026-05-15",
+      "time": "03:06 PM IST",
+      "action": "NO_TRADE",
+      "reason": "Less than \u20b95,000 available \u2014 capital fully deployed.",
+      "tickers": [],
+      "scores": [],
+      "signals": [],
+      "conviction": ""
     }
   ]
 }
