@@ -10,36 +10,52 @@ Fully automated intraday trading signal system for NSE India. No manual interven
 
 **Every weekday, this is what happens automatically:**
 
-**During market hours (9:45 AM – 3:15 PM IST)**
-The engine scans 95 NSE stocks every 5 minutes. The moment a stock clears all the criteria below, a BUY signal is published to the dashboard. Maximum 2 signals per day.
+**9:15 AM – 2:00 PM IST — Continuous scan**
+The engine scans 95 NSE stocks every 5 minutes. The moment a stock clears all entry criteria, a BUY signal is published to the dashboard. No fixed signal time — it fires exactly when the setup is ready. No new signals after 2:00 PM (not enough time left to hit target).
 
-**At 3:20 PM IST**
-All open positions are closed. The engine checks whether the target was hit, the stop was triggered, or neither — and records the result. No positions are ever held overnight.
+**3:20 PM IST — Force close**
+All open positions are closed. The engine records whether the target was hit, stop was triggered, or neither. No positions held overnight — ever.
 
-**Every Sunday at 6 PM IST**
-The engine reruns a 2-year backtest on all 95 stocks and refreshes the eligible list for the coming week.
+**Every Sunday at 6:30 PM IST — Weekly review**
+The engine replays last week's market data bar by bar, checks which signals would have been issued, simulates outcomes, and analyses which of the 7 signals predicted winners vs losers. From the second Sunday onward, it automatically nudges the model weights toward what actually worked.
+
+**Every Sunday at 6:00 PM IST — Backtest refresh**
+Reruns 2-year backtest on all stocks and refreshes the eligible list for the coming week.
 
 ---
 
 ## What triggers a signal
 
-A signal is only issued when **at least 3 of these 7 conditions** are true at the same time:
+A signal is only issued when **at least 4 of these 7 conditions** are true at the same time:
 
 | # | Condition | What it means |
 |---|-----------|---------------|
-| 1 | Price above previous day's close | Momentum is continuing from yesterday |
+| 1 | Price above previous day's close | Momentum continuing from yesterday |
 | 2 | ORB breakout | Price broke above the 9:15–9:45 AM opening range |
-| 3 | Above VWAP | Price is above the average price weighted by volume |
-| 4 | RSI not overbought | Stock is not already overextended |
-| 5 | EMA trend up | Short-term moving average is above long-term |
+| 3 | Above VWAP | Price is above the volume-weighted average price |
+| 4 | RSI momentum | RSI is in a healthy range — not overextended |
+| 5 | EMA trend up | Short-term moving average above long-term |
 | 6 | Volume spike | Today's volume is 1.5× above normal |
 | 7 | Near key level | Price is near yesterday's high or low |
 
 ---
 
+## Hard entry quality gates
+
+Even if 4/7 signals fire, the signal is **blocked** if any of these fail:
+
+| Gate | Threshold | Why |
+|------|-----------|-----|
+| Volume | ≥ 1× average | Low volume = no institutional participation |
+| ORB range width | ≥ 1% of price | Tight range = target mathematically unreachable |
+| Nifty trend | ≥ +0.3% from open | Rangebound market = individual stocks won't trend |
+| Time-to-target | ≥ 0.5% per hour left | Late entries with small targets = not worth the risk |
+
+---
+
 ## How the best stock is picked
 
-All qualifying stocks are ranked by a **composite score (0–100)** built from 6 factors:
+All qualifying stocks are ranked by a **composite score (0–100)** built from 6 factors. Scores decay linearly throughout the day — a stock scoring 80 at 9:45 AM beats the same stock scoring 80 at 1:00 PM.
 
 | Factor | Weight | What it measures |
 |--------|--------|-----------------|
@@ -50,22 +66,9 @@ All qualifying stocks are ranked by a **composite score (0–100)** built from 6
 | Expected return today | 10% | Entry to target % |
 | Volume confirmation | 10% | How strong today's volume is vs average |
 
-The highest-scoring stock gets the BUY call.
+The **top 2 highest-scoring stocks from different sectors** get the BUY call. Two signals from the same sector (e.g. two banks or two IT stocks) are blocked — only the better one is taken.
 
----
-
-## What if nothing qualifies?
-
-The engine has 4 fallback tiers so a call always appears:
-
-| Tier | Label | Condition |
-|------|-------|-----------|
-| 1 | HIGH | ≥60% historical win rate + ≥3/7 signals today |
-| 2 | MEDIUM | ≥60% historical win rate + at least 1 signal |
-| 3 | BEST MATCH | Best stock from 60-day ORB backtest, no win rate gate |
-| 4 | EXPLORATORY | Pure live scan, no backtest filter at all |
-
-The dashboard shows which tier the call came from so you know how much weight to give it.
+Weights are automatically updated every Sunday based on what actually worked the previous week.
 
 ---
 
@@ -73,17 +76,12 @@ The dashboard shows which tier the call came from so you know how much weight to
 
 | Rule | Detail |
 |------|--------|
-| Entry | Current price at the moment criteria are met |
-| Target | Entry + 2× the risk (minimum 2:1 reward-to-risk) |
+| Entry | Price at the bar when criteria are met (anchored to 9:45 AM for morning signals) |
+| Target | Entry + 1× 14-day ATR (Average True Range) — adapts to each stock's actual volatility, minimum 2:1 R:R |
 | Stop loss | Just below the 9:15–9:45 AM opening range low |
-| Force close | All positions closed by 3:20 PM IST regardless of P&L |
+| Signal cutoff | No new signals after 2:00 PM IST |
+| Force close | All positions closed at 3:20 PM IST regardless of P&L |
 | Overnight | Never. All positions intraday only. |
-
----
-
-## Position sizing
-
-Uses **fractional Kelly criterion** (25% of full Kelly, capped at 20% of capital per trade). When two signals are active on the same day, capital is split proportionally by composite score.
 
 ---
 
@@ -91,16 +89,30 @@ Uses **fractional Kelly criterion** (25% of full Kelly, capped at 20% of capital
 
 | Time | What runs |
 |------|-----------|
-| Every 5 min, 9:45 AM – 3:15 PM IST (Mon–Fri) | Live scan → publishes signal when criteria met |
-| 3:20 PM IST (Mon–Fri) | Records exit price and result |
+| 9:15 AM – 2:00 PM IST, every 5 min (Mon–Fri) | Live scan → publishes signal when all gates pass |
+| 3:20 PM IST (Mon–Fri) | Force closes all positions, records P&L |
 | 6:00 PM IST (Sunday) | Reruns 2-year backtest, refreshes stock rankings |
+| 6:30 PM IST (Sunday) | Replays last week bar by bar, analyses signal performance, updates model weights |
+
+---
+
+## Self-learning model
+
+Every Sunday the engine:
+1. Replays the entire previous week using actual market data
+2. Identifies which signals (ORB, VWAP, RSI etc.) were active in winning trades
+3. Identifies which were active in losing trades
+4. Nudges the composite score weights toward signals that predicted winners
+5. Maximum weight change is ±1.5% per week — gradual, not reactive
+
+This means the model improves from real trade outcomes over time, not just historical backtests.
 
 ---
 
 ## Stock universe
 
-95 NSE F&O-eligible stocks across IT, Banking, Energy, Industrials, Pharma, Auto, FMCG, Metals, Telecom, and Consumer sectors. Full list in [`engine/config.py`](engine/config.py).
+95 NSE-listed stocks across IT, Banking, NBFC, Energy, Infra, Metals, Auto, FMCG, Pharma, Retail, Telecom, and Real Estate. Signals are picked from different sectors each day to avoid concentration risk. Full list in [`engine/config.py`](engine/config.py).
 
 ---
 
-> ⚠️ Educational and research purposes only. Not financial advice. Past backtest performance does not guarantee future results.
+> ⚠️ Educational and research purposes only. Not financial advice. Past performance does not guarantee future results.
