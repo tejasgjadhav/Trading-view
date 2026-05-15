@@ -110,7 +110,7 @@ a{color:#58a6ff;text-decoration:none}
 <header>
   <div>
     <h1>📈 NSE Intraday Dashboard</h1>
-    <div class="sub">7-Signal Quant Engine · ORB + VWAP · Signals @ 9:45 AM &amp; 11:00 AM IST · Auto-tracked daily</div>
+    <div class="sub">7-Signal Quant Engine · ORB + VWAP · Continuous Scan · Auto-tracked daily</div>
   </div>
   <div>
     <div id="clock">—<div class="tz">IST</div></div>
@@ -202,7 +202,7 @@ a{color:#58a6ff;text-decoration:none}
 </div>
 
 <footer>
-  NSE India · Signals at 9:45 AM &amp; 11:00 AM IST · P&L recorded at 3:20 PM IST · Auto-runs via GitHub Actions ·
+  NSE India · Continuous Scan · P&L recorded at 3:20 PM IST · Auto-runs via GitHub Actions ·
   <a href="https://github.com/tejasgjadhav/Trade-Intraday" target="_blank">github.com/tejasgjadhav/Trade-Intraday</a><br>
   <span style="color:#f85149">⚠ Educational purposes only. Not financial advice.</span>
 </footer>
@@ -533,9 +533,7 @@ function renderTradeLog(calls){
     return;
   }
   tbody.innerHTML=[...calls].reverse().map(c=>{
-    const session=c.signal_session==='MIDDAY'
-      ?'<span style="color:#d29922;font-size:11px;font-weight:600">11 AM</span>'
-      :'<span style="color:#58a6ff;font-size:11px;font-weight:600">9:45 AM</span>';
+    const session='<span style="color:#58a6ff;font-size:11px;font-weight:600">'+(c.signal_session||'—')+'</span>';
 
     // % distances from entry
     const tgtPct=c.target&&c.entry?`+${((c.target/c.entry-1)*100).toFixed(2)}%`:'—';
@@ -627,7 +625,7 @@ async function loadAll(){
     const equity=dc.equity||100000;
     const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
 
-    // Group today's calls (9:45 AM + 11:00 AM)
+    // Group today's calls
     const todayCalls=calls.filter(c=>c.date===today);
     const displayCalls=todayCalls.length>0?todayCalls:
       (calls.length>0?[calls[calls.length-1]]:[{action:'HOLD',reason:'No call yet — signal runs at 9:45 AM IST on weekdays',ticker:'—'}]);
