@@ -1,0 +1,23 @@
+{
+  "scans": [
+    {
+      "date": "2026-05-15",
+      "time": "02:55 PM IST",
+      "action": "BUY",
+      "reason": "",
+      "tickers": [
+        "ITC.NS",
+        "TITAN.NS"
+      ],
+      "scores": [
+        95.2,
+        73.0
+      ],
+      "signals": [
+        5,
+        4
+      ],
+      "conviction": "BEST MATCH"
+    }
+  ]
+}
