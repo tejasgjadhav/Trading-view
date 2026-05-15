@@ -191,6 +191,24 @@ a{color:#58a6ff;text-decoration:none}
     </div>
   </section>
 
+  <!-- SCAN ACTIVITY LOG -->
+  <section>
+    <div class="table-wrap">
+      <div class="thead">
+        <h2>Scan Activity Log</h2>
+        <span style="font-size:12px;color:#8b949e">Every 5-min scan · today's runs</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th><th>Result</th><th>Stocks Found</th><th>Score</th><th>Signals</th><th>Reason</th>
+          </tr>
+        </thead>
+        <tbody id="scan-log"></tbody>
+      </table>
+    </div>
+  </section>
+
   <!-- STOCK UNIVERSE -->
   <section>
     <h2>NSE Stock Universe — Intraday Performance Ranking <span style="color:#8b949e;font-weight:400;font-size:12px">Sorted by Max 1-Day Return · Refreshed every Sunday · ✓ = eligible for signal (WR ≥ 60%)</span></h2>
@@ -675,6 +693,11 @@ async function loadAll(){
     renderTradeLog(calls);
 
     try{
+      const sl=await fetchJSON('data/scan_log.json');
+      renderScanLog(sl.scans||[]);
+    }catch{ renderScanLog([]); }
+
+    try{
       const bt=await fetchJSON('results/intraday_backtest.json');
       renderBacktest(bt);
       drawEquityChart(calls,bt.best_trades||[]);
@@ -684,6 +707,36 @@ async function loadAll(){
   }catch(e){
     document.getElementById('call-hero').innerHTML=`<div class="empty">Signal runs at 9:45 AM IST on weekdays. First call will appear after market opens.<br><small style="color:#484f58;margin-top:8px;display:block">${e.message}</small></div>`;
   }
+}
+
+// ─── Scan Activity Log ────────────────────────────────────────────────────────
+function renderScanLog(scans){
+  const tbody=document.getElementById('scan-log');
+  if(!tbody) return;
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'Asia/Kolkata'});
+  const todayScans=[...scans].filter(s=>s.date===today).reverse();
+  if(!todayScans.length){
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:#484f58;padding:16px">No scans recorded yet today</td></tr>';
+    return;
+  }
+  tbody.innerHTML=todayScans.map(s=>{
+    const isBuy=s.action==='BUY';
+    const resultCol=isBuy?'#3fb950':'#8b949e';
+    const resultIcon=isBuy?'🟢 BUY':'⚪ No signal';
+    const stocks=isBuy&&s.tickers.length
+      ? s.tickers.map((t,i)=>`<strong>${companyName(t)}</strong> <span style="color:#8b949e;font-size:11px">${t.replace('.NS','')}</span>${s.scores[i]!=null?' <span style="color:#58a6ff;font-size:11px">'+s.scores[i]+'/100</span>':''}`).join('<br>')
+      : '—';
+    const sigs=isBuy&&s.signals.length ? s.signals.map(n=>`${n}/7`).join(', ') : '—';
+    const reason=!isBuy&&s.reason ? `<span style="color:#484f58;font-size:11px">${s.reason}</span>` : '';
+    return `<tr>
+      <td style="white-space:nowrap;color:#c9d1d9">${s.time||'—'}</td>
+      <td style="color:${resultCol};font-weight:600">${resultIcon}</td>
+      <td>${stocks}</td>
+      <td style="color:#58a6ff">${isBuy&&s.scores.length?s.scores.join(', '):'—'}</td>
+      <td>${sigs}</td>
+      <td>${reason}</td>
+    </tr>`;
+  }).join('');
 }
 
 window.addEventListener('resize',()=>{

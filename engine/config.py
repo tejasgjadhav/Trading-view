@@ -103,6 +103,7 @@ ORB_BACKTEST_PATH = "results/intraday_backtest.json"  # 60-day data for 95 stock
 ONLY_BUY = True   # Never short, never puts
 
 # --- PATHS ---
-CALLS_PATH   = "data/daily_calls.json"
-REPORTS_DIR  = "reports"
+CALLS_PATH    = "data/daily_calls.json"
+SCAN_LOG_PATH = "data/scan_log.json"
+REPORTS_DIR   = "reports"
 BT_CACHE_PATH = "results/quant_backtest_cache.json"

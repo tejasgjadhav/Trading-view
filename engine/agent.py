@@ -14,7 +14,7 @@ from datetime import datetime, date
 import pytz
 
 from engine.recommendation import generate_recommendation, generate_midday_recommendation, generate_continuous_recommendation
-from engine.config import CAPITAL, CALLS_PATH, REPORTS_DIR, IST
+from engine.config import CAPITAL, CALLS_PATH, SCAN_LOG_PATH, REPORTS_DIR, IST
 
 
 def send_whatsapp_alert(rec: dict):
@@ -267,6 +267,42 @@ def save_to_calls_log(rec: dict, continuous: bool = False):
             f.write(f"\n**Running Capital:** ₹{equity:,.0f}\n")
 
 
+def save_scan_log(rec: dict):
+    """Append every continuous scan result to scan_log.json — full history."""
+    import math
+
+    def _clean(obj):
+        if isinstance(obj, dict):  return {k: _clean(v) for k, v in obj.items()}
+        if isinstance(obj, list):  return [_clean(v) for v in obj]
+        if isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)): return None
+        return obj
+
+    now_ist = datetime.now(IST)
+    today   = str(date.today())
+
+    if os.path.exists(SCAN_LOG_PATH):
+        with open(SCAN_LOG_PATH) as f:
+            log = json.load(f)
+    else:
+        log = {"scans": []}
+
+    entry = {
+        "date":      today,
+        "time":      now_ist.strftime("%I:%M %p IST"),
+        "action":    rec.get("action", "NO_TRADE"),
+        "reason":    rec.get("reason", ""),
+        "tickers":   [c["ticker"] for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
+        "scores":    [round(c.get("composite_score", 0), 1) for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
+        "signals":   [c.get("signals_aligned", 0) for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
+        "conviction": rec.get("conviction", ""),
+    }
+
+    log["scans"].append(_clean(entry))
+    os.makedirs(os.path.dirname(SCAN_LOG_PATH), exist_ok=True)
+    with open(SCAN_LOG_PATH, "w") as f:
+        json.dump(log, f, indent=2, default=str)
+
+
 def run_agent(force_fresh: bool = False):
     rec = generate_recommendation(force_fresh_backtest=force_fresh)
     print_recommendation(rec)
@@ -292,7 +328,7 @@ if __name__ == "__main__":
     if args.continuous:
         rec = generate_continuous_recommendation()
         print_recommendation(rec)
-        # Only save and alert if an actual BUY signal was generated
+        save_scan_log(rec)   # always log every scan
         if rec.get("action") == "BUY":
             save_to_calls_log(rec, continuous=True)
             send_whatsapp_alert(rec)
