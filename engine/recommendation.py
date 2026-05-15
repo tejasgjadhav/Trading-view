@@ -40,6 +40,49 @@ CONVICTION_MEDIUM = "MEDIUM"
 CONVICTION_BEST   = "BEST MATCH"
 CONVICTION_EXPLO  = "EXPLORATORY"
 
+# ── Sector map — prevents 2 signals from same sector (concentration risk) ────
+SECTOR_MAP = {
+    # Banking & Finance
+    "HDFCBANK.NS":"BANK","ICICIBANK.NS":"BANK","SBIN.NS":"BANK","AXISBANK.NS":"BANK",
+    "KOTAKBANK.NS":"BANK","INDUSINDBK.NS":"BANK","FEDERALBNK.NS":"BANK",
+    "BANKBARODA.NS":"BANK","PNB.NS":"BANK","IDFCFIRSTB.NS":"BANK","BANDHANBNK.NS":"BANK",
+    "BAJFINANCE.NS":"NBFC","BAJAJFINSV.NS":"NBFC","HDFCLIFE.NS":"INSURANCE",
+    "SBILIFE.NS":"INSURANCE","CHOLAFIN.NS":"NBFC","MUTHOOTFIN.NS":"NBFC",
+    "SHRIRAMFIN.NS":"NBFC","RECLTD.NS":"NBFC","PFC.NS":"NBFC","IRFC.NS":"NBFC",
+    # IT
+    "TCS.NS":"IT","INFY.NS":"IT","WIPRO.NS":"IT","HCLTECH.NS":"IT","TECHM.NS":"IT",
+    "MPHASIS.NS":"IT","COFORGE.NS":"IT","PERSISTENT.NS":"IT","OFSS.NS":"IT","LTIM.NS":"IT",
+    # Energy & Oil
+    "RELIANCE.NS":"ENERGY","ONGC.NS":"ENERGY","BPCL.NS":"ENERGY","IOC.NS":"ENERGY",
+    "COALINDIA.NS":"ENERGY","POWERGRID.NS":"ENERGY","NTPC.NS":"ENERGY",
+    "TATAPOWER.NS":"ENERGY","ADANIGREEN.NS":"ENERGY",
+    # Infra & Capital Goods
+    "LT.NS":"INFRA","ADANIENT.NS":"INFRA","ADANIPORTS.NS":"INFRA",
+    "SIEMENS.NS":"INFRA","ABB.NS":"INFRA","BHEL.NS":"INFRA",
+    "HAVELLS.NS":"INFRA","POLYCAB.NS":"INFRA","VOLTAS.NS":"INFRA",
+    # Metals & Materials
+    "JSWSTEEL.NS":"METALS","TATASTEEL.NS":"METALS","HINDALCO.NS":"METALS",
+    "VEDL.NS":"METALS","SAIL.NS":"METALS","NMDC.NS":"METALS",
+    "ULTRACEMCO.NS":"CEMENT","GRASIM.NS":"CEMENT","AMBUJACEM.NS":"CEMENT","ACC.NS":"CEMENT",
+    # Auto
+    "MARUTI.NS":"AUTO","BAJAJ-AUTO.NS":"AUTO","HEROMOTOCO.NS":"AUTO",
+    "EICHERMOT.NS":"AUTO","M&M.NS":"AUTO","TATAMOTORS.NS":"AUTO",
+    "ASHOKLEY.NS":"AUTO","BALKRISIND.NS":"AUTO",
+    # FMCG & Consumer
+    "HINDUNILVR.NS":"FMCG","ITC.NS":"FMCG","NESTLEIND.NS":"FMCG","BRITANNIA.NS":"FMCG",
+    "TATACONSUM.NS":"FMCG","GODREJCP.NS":"FMCG","MARICO.NS":"FMCG",
+    "DABUR.NS":"FMCG","PIDILITIND.NS":"FMCG","ASIANPAINT.NS":"FMCG",
+    # Pharma
+    "SUNPHARMA.NS":"PHARMA","DRREDDY.NS":"PHARMA","CIPLA.NS":"PHARMA",
+    "DIVISLAB.NS":"PHARMA","APOLLOHOSP.NS":"PHARMA","LUPIN.NS":"PHARMA",
+    "TORNTPHARM.NS":"PHARMA","AUROPHARMA.NS":"PHARMA","ZYDUSLIFE.NS":"PHARMA",
+    # Retail & Consumer
+    "TITAN.NS":"RETAIL","DMART.NS":"RETAIL","TRENT.NS":"RETAIL","JUBLFOOD.NS":"RETAIL",
+    # Telecom & Others
+    "BHARTIARTL.NS":"TELECOM","NAUKRI.NS":"TECH","INDIGO.NS":"AVIATION",
+    "DLF.NS":"REALTY","GODREJPROP.NS":"REALTY","ZOMATO.NS":"TECH",
+}
+
 
 def _no_trade(reason: str) -> dict:
     return {
@@ -184,6 +227,26 @@ def compute_composite_scores(candidates: list, now_ist: datetime = None) -> list
     return sorted(candidates, key=lambda x: x["composite_score"], reverse=True)
 
 
+# ── ATR calculator ───────────────────────────────────────────────────────────
+
+def _compute_atr(df_daily: pd.DataFrame, period: int = 14) -> float:
+    """
+    Average True Range over last `period` days.
+    ATR = mean(max(H-L, |H-Cprev|, |L-Cprev|)) over period.
+    Used to set dynamic targets instead of fixed 2:1 R:R.
+    """
+    if df_daily.empty or len(df_daily) < period + 1:
+        return 0.0
+    hi  = df_daily["High"].values
+    lo  = df_daily["Low"].values
+    cl  = df_daily["Close"].values
+    trs = []
+    for i in range(1, len(cl)):
+        tr = max(hi[i] - lo[i], abs(hi[i] - cl[i-1]), abs(lo[i] - cl[i-1]))
+        trs.append(tr)
+    return float(sum(trs[-period:]) / period)
+
+
 # ── Live signal scanner ───────────────────────────────────────────────────────
 
 def _scan_live(tickers: list, bt_lookup: dict = None, entry_bar_idx: int = MORNING_ENTRY_BAR) -> list:
@@ -198,18 +261,24 @@ def _scan_live(tickers: list, bt_lookup: dict = None, entry_bar_idx: int = MORNI
             sig    = compute_signals(df_daily, df_5min,
                                      levels["pdh"], levels["pdl"], levels["pdc"],
                                      entry_bar_idx=entry_bar_idx)
-            sig["ticker"] = ticker
+            sig["ticker"]   = ticker
+            sig["atr_14"]   = _compute_atr(df_daily, period=14)
+            sig["df_daily"] = df_daily  # carry for _build_call ATR target
             bt = (bt_lookup or {}).get(ticker, {})
             sig["bt_win_rate"]        = float(bt.get("win_rate", 0) or 0)
             sig["bt_sharpe"]          = float(bt.get("sharpe_ratio", bt.get("sharpe", 0)) or 0)
             sig["bt_strategy"]        = bt.get("strategy", "ORB")
             sig["bt_max_1day_return"] = float(bt.get("max_1day_return", 0) or 0)
-            # Pre-compute expected_return for scoring
+            # Pre-compute expected_return using ATR-based target for scoring
             entry   = sig.get("current_price", 0)
+            atr     = sig.get("atr_14", 0)
             orb_low = sig.get("orb_low", entry * 0.99)
             stop    = orb_low * 0.998
             risk    = entry - stop
-            target  = entry + risk * MIN_REWARD_RISK if risk > 0 else entry * 1.02
+            # ATR target: entry + 1× daily ATR (realistic intraday move), floor at 2:1 R:R
+            atr_target  = entry + atr if atr > 0 else 0
+            rr_target   = entry + risk * MIN_REWARD_RISK if risk > 0 else entry * 1.02
+            target      = max(atr_target, rr_target) if atr_target > entry else rr_target
             sig["expected_return"] = round((target / entry - 1) * 100, 2) if entry else 0
             results.append(sig)
         except Exception:
@@ -224,18 +293,24 @@ def _build_call(sig: dict, now_ist: datetime, conviction: str):
     entry   = sig.get("current_price", 0)
     orb_low = sig.get("orb_low", entry * 0.99)
     vwap    = sig.get("vwap", entry)
+    atr     = sig.get("atr_14", 0)
 
     if not entry or entry <= 0:
         return None
 
-    stop  = round(orb_low * 0.998, 2)
-    risk  = entry - stop
+    stop = round(orb_low * 0.998, 2)
+    risk = entry - stop
     if risk <= 0:
         return None
 
-    target = round(entry + risk * MIN_REWARD_RISK, 2)
-    exp    = (target / entry - 1) * 100
-    rr     = (target - entry) / (entry - stop)
+    # ATR-based target: 1× daily ATR above entry — reflects realistic intraday move
+    # Floor: never below 2:1 R:R (MIN_REWARD_RISK) to ensure worthwhile trades
+    atr_target = round(entry + atr, 2) if atr > 0 else 0
+    rr_target  = round(entry + risk * MIN_REWARD_RISK, 2)
+    target     = max(atr_target, rr_target) if atr_target > entry else rr_target
+
+    exp = (target / entry - 1) * 100
+    rr  = (target - entry) / (entry - stop)
 
     if exp < MIN_RETURN_PCT or rr < MIN_REWARD_RISK:
         return None
@@ -589,12 +664,27 @@ def generate_continuous_recommendation() -> dict:
     if not all_candidates:
         return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
 
-    # Rank all by composite score, pick best 2
+    # Rank all by composite score, pick best 2 from DIFFERENT sectors
     all_candidates.sort(key=lambda x: x[0].get("composite_score", 0), reverse=True)
-    best = all_candidates[:2]
+    best = []
+    used_sectors = set()
+    for sig, conviction_level in all_candidates:
+        t = sig["ticker"]
+        sector = SECTOR_MAP.get(t, t)  # fallback to ticker if not mapped
+        if sector in used_sectors:
+            print(f"  [SKIP] {t} — sector '{sector}' already represented (concentration risk)")
+            continue
+        best.append((sig, conviction_level))
+        used_sectors.add(sector)
+        if len(best) == 2:
+            break
+
+    if not best:
+        return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
+
     tickers_found = [s["ticker"] for s, _ in best]
     conviction = best[0][1]
-    print(f"  [SIGNAL] Best {len(best)} of {len(all_candidates)} candidates: {tickers_found} at {now_ist.strftime('%I:%M %p')}")
+    print(f"  [SIGNAL] Best {len(best)} of {len(all_candidates)} candidates (sectors: {used_sectors}): {tickers_found} at {now_ist.strftime('%I:%M %p')}")
     return _build_result_continuous([s for s, _ in best], now_ist, conviction, avail)
 
 

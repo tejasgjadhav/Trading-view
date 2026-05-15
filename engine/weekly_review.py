@@ -422,17 +422,27 @@ def run_weekly_review(dry_run: bool = False) -> dict:
     signal_stats   = {}
     weights_changed = False
 
+    # Need ≥5 qualifying signals before weight learning is meaningful
+    # (first run May 18 is observation only; May 25 onward will update weights)
+    enough_data = total >= 5
+    if not enough_data:
+        print(f"\n  [WEIGHTS] Only {total} replayed signals — need ≥5 to update weights.")
+        print(f"  [WEIGHTS] Observation-only run. Weights unchanged until more data accumulates.")
+
     if not no_signals:
         signal_stats = analyze_signal_features(replayed_trades)
-        print(f"\n  Signal importance:")
+        print(f"\n  Signal importance (observation):")
         for name, s in signal_stats.items():
             bar = "█" * int(abs(s["importance"]) * 10)
             print(f"    {name:<15} win={s['win_pct']:.0%}  loss={s['loss_pct']:.0%}  importance={s['importance']:+.2f}  {bar}")
 
-        new_weights = compute_new_weights(old_weights, signal_stats, replayed_trades)
-        if new_weights != old_weights:
-            weights_changed = True
-            update_config_weights(new_weights, dry_run=dry_run)
+        if enough_data:
+            new_weights = compute_new_weights(old_weights, signal_stats, replayed_trades)
+            if new_weights != old_weights:
+                weights_changed = True
+                update_config_weights(new_weights, dry_run=dry_run)
+        else:
+            new_weights = old_weights
 
     # Clean trades for JSON (remove any non-serializable fields)
     clean_trades = []
