@@ -141,7 +141,7 @@ def print_recommendation(rec: dict):
     print(f"{'='*65}\n")
 
 
-def save_to_calls_log(rec: dict):
+def save_to_calls_log(rec: dict, continuous: bool = False):
     """Merge into existing daily_calls.json for dashboard."""
     today = str(date.today())
 
@@ -167,7 +167,10 @@ def save_to_calls_log(rec: dict):
     else:
         calls  = rec.get("calls", [rec])
         alloc  = rec.get("allocation", {})
-        log["calls"] = [c for c in log["calls"] if c["date"] != today]
+        # Continuous mode: append to today's calls (never wipe — 2-signal cap enforced upstream)
+        # Morning/midday mode: replace today's calls (re-run safe)
+        if not continuous:
+            log["calls"] = [c for c in log["calls"] if c["date"] != today]
 
         session = rec.get("signal_session", "MORNING")
         for i, r in enumerate(calls):
@@ -291,7 +294,7 @@ if __name__ == "__main__":
         print_recommendation(rec)
         # Only save and alert if an actual BUY signal was generated
         if rec.get("action") == "BUY":
-            save_to_calls_log(rec)
+            save_to_calls_log(rec, continuous=True)
             send_whatsapp_alert(rec)
         else:
             print(f"  [{rec.get('reason','')}]")
