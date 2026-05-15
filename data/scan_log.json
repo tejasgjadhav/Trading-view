@@ -28,6 +28,17 @@
       "scores": [],
       "signals": [],
       "conviction": ""
+    },
+    {
+      "date": "2026-05-15",
+      "time": "05:05 PM IST",
+      "action": "NO_TRADE",
+      "reason": "Past 2:00 PM IST signal cutoff. No new entries \u2014 positions close at 3:20 PM.",
+      "tickers": [],
+      "scores": [],
+      "signals": [],
+      "time_mult": null,
+      "conviction": ""
     }
   ]
 }
