@@ -407,12 +407,10 @@ def generate_recommendation(force_fresh_backtest: bool = False) -> dict:
 def generate_continuous_recommendation() -> dict:
     """
     Called every 5 min during market hours (9:15 AM – 3:15 PM IST).
-    Uses the CURRENT bar (latest price) — no fixed time anchor.
-    Publishes a signal the moment ≥3/7 criteria fire.
-    Skips if:
-      - Before 9:45 AM (opening range not yet formed — need ≥6 bars)
-      - Today already has 2 open/closed signals
-      - A stock already has a signal today
+    Collects ALL qualifying signals across all tiers, ranks by composite score,
+    picks the best 2 that haven't been issued today. No daily cap — if 5 stocks
+    qualify at once, best 2 by score are published. Duplicates (same ticker
+    already issued today) are skipped.
     """
     now_ist = datetime.now(IST)
     hour, minute = now_ist.hour, now_ist.minute
@@ -425,29 +423,25 @@ def generate_continuous_recommendation() -> dict:
     if hour >= 15 and minute >= 20:
         return _no_trade("Past force-close time (3:20 PM IST). No new signals.")
 
-    # Guard: max 2 signals per day
-    open_today = _get_open_positions_today_all()
-    if len(open_today) >= 2:
-        tickers = [c["ticker"] for c in open_today]
-        return _no_trade(f"Max 2 signals already issued today: {tickers}. No new signal.")
-
     avail = _remaining_capital()
     if avail < 5000:
         return _no_trade("Less than ₹5,000 available — capital fully deployed.")
 
-    open_tickers = {c["ticker"] for c in open_today}
+    # Skip tickers already issued today (no duplicates)
+    issued_today = _get_open_positions_today_all()
+    issued_tickers = {c["ticker"] for c in issued_today}
 
     print(f"\n{'='*65}")
     print(f"  CONTINUOUS SCAN — {now_ist.strftime('%d %b %Y  %I:%M %p IST')}")
-    print(f"  Signals today: {len(open_today)}/2  |  Open: {open_tickers or 'none'}")
+    print(f"  Issued today: {issued_tickers or 'none'}")
     print(f"  Available capital: ₹{avail:,.0f}")
     print(f"{'='*65}\n")
 
     def _filtered(tickers):
-        return [t for t in tickers if t not in open_tickers]
+        return [t for t in tickers if t not in issued_tickers]
 
-    # -1 = dynamic/latest bar
     DYNAMIC = -1
+    all_candidates = []  # (scored_signal, conviction)
 
     # TIER 1/2 — 2-year backtest gate
     bt_df = load_or_run_backtest(CASH_EQUITIES, force_fresh=False)
@@ -464,27 +458,34 @@ def generate_continuous_recommendation() -> dict:
             scored = compute_composite_scores(sigs)
 
             tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
-            if tier1:
-                print(f"  [TIER 1] Criteria met: {tier1[0]['ticker']} at {now_ist.strftime('%I:%M %p')}")
-                return _build_result_continuous(tier1[:1], now_ist, CONVICTION_HIGH, avail)
+            all_candidates.extend([(s, CONVICTION_HIGH) for s in tier1])
 
-            tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
-            if tier2 and tier2[0].get("signals_aligned", 0) >= 2:
-                print(f"  [TIER 2] Partial criteria: {tier2[0]['ticker']}")
-                return _build_result_continuous(tier2[:1], now_ist, CONVICTION_MEDIUM, avail)
+            if not tier1:
+                tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
+                all_candidates.extend([(s, CONVICTION_MEDIUM) for s in tier2])
 
-    # TIER 3
+    # TIER 3 — ORB universe, add stocks not already in candidates
     orb_lookup = _load_orb_backtest()
     if orb_lookup:
+        candidate_tickers = {s["ticker"] for s, _ in all_candidates}
         top_orb = _filtered(sorted(orb_lookup, key=lambda t: orb_lookup[t].get("max_1day_return", 0), reverse=True)[:20])
+        top_orb = [t for t in top_orb if t not in candidate_tickers]
         if top_orb:
             sigs   = _scan_live(top_orb, orb_lookup, entry_bar_idx=DYNAMIC)
             scored = compute_composite_scores(sigs)
-            tier1  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
-            if tier1:
-                return _build_result_continuous(tier1[:1], now_ist, CONVICTION_BEST, avail)
+            tier3  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            all_candidates.extend([(s, CONVICTION_BEST) for s in tier3])
 
-    return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
+    if not all_candidates:
+        return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
+
+    # Rank all by composite score, pick best 2
+    all_candidates.sort(key=lambda x: x[0].get("composite_score", 0), reverse=True)
+    best = all_candidates[:2]
+    tickers_found = [s["ticker"] for s, _ in best]
+    conviction = best[0][1]
+    print(f"  [SIGNAL] Best {len(best)} of {len(all_candidates)} candidates: {tickers_found} at {now_ist.strftime('%I:%M %p')}")
+    return _build_result_continuous([s for s, _ in best], now_ist, conviction, avail)
 
 
 # ── Midday helpers ────────────────────────────────────────────────────────────
