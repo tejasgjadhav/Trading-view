@@ -120,30 +120,23 @@ a{color:#58a6ff;text-decoration:none}
 
 <div class="container">
 
-  <!-- TODAY'S CALLS -->
+  <!-- TODAY'S SIGNALS -->
   <section>
-    <h2>Signal 1 <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
+    <h2>Today's Signals <span id="call-date" style="color:#8b949e;font-weight:400;font-size:12px"></span>
+      <span style="color:#8b949e;font-weight:400;font-size:12px">· auto-triggers when criteria met · max 2/day</span>
+    </h2>
     <div id="call-hero" class="call-hero hold">
-      <div class="empty">Loading today's call...</div>
+      <div class="empty">Scanning every 5 min during market hours — signal appears here when criteria fire.</div>
     </div>
     <div id="call-secondary" style="display:none;margin-top:12px"></div>
-    <div id="alloc-box" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
+    <div id="call-midday" style="display:none;margin-top:12px"></div>
   </section>
 
-  <!-- SIGNAL 2 -->
+  <!-- TODAY'S RESULT -->
   <section>
-    <h2>Signal 2 <span style="color:#8b949e;font-weight:400;font-size:12px">· Triggers when criteria met · remaining capital</span></h2>
-    <div id="call-midday" class="call-hero hold">
-      <div class="empty">Midday signal runs at 11:00 AM IST — appears here after market opens.</div>
-    </div>
-    <div id="alloc-midday" style="display:none;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:16px;margin-top:12px"></div>
-  </section>
-
-  <!-- TODAY'S CONSOLIDATED P&L -->
-  <section>
-    <h2>Today's Result <span style="color:#8b949e;font-weight:400;font-size:12px">· Combined 9:45 AM + 11:00 AM</span></h2>
+    <h2>Today's Result</h2>
     <div id="today-consolidated" style="background:#161b22;border:1px solid #30363d;border-radius:10px;padding:20px">
-      <div class="empty">P&L records at 3:20 PM IST after positions close.</div>
+      <div class="empty">Result records at 3:20 PM IST after positions close.</div>
     </div>
   </section>
 
@@ -239,166 +232,95 @@ function buildCallHTML(call, label=''){
   const badgeCls=`badge-${cls.toLowerCase()}`;
   const ticker=call.ticker||'—';
 
-  let priceBoxes='';
-  if(a==='BUY'||a==='SELL'){
-    const entPct=call.target&&call.entry?((call.target/call.entry-1)*100).toFixed(2):0;
-    const slPct=call.stoploss&&call.entry?((1-call.stoploss/call.entry)*100).toFixed(2):0;
-    const rr=call.reward_risk?`${Number(call.reward_risk).toFixed(1)}:1`:'—';
-    priceBoxes=`
-      <div class="call-price-box"><div class="label">Target</div><div class="value green">+${entPct}%</div></div>
-      <div class="call-price-box"><div class="label">Stop Loss</div><div class="value red">-${slPct}%</div></div>
-      <div class="call-price-box"><div class="label">R:R Ratio</div><div class="value yellow">${rr}</div></div>
-      <div class="call-price-box"><div class="label">Max 1-Day (BT)</div><div class="value green">+${call.bt_max_1day!=null?Number(call.bt_max_1day).toFixed(2):'—'}%</div></div>
-    `;
-    if(call.exit&&call.entry){
-      const achieved=((call.exit/call.entry-1)*100).toFixed(2);
-      const exitCol=achieved>=0?'green':'red';
-      priceBoxes+=`<div class="call-price-box"><div class="label">Achieved</div><div class="value ${exitCol}">${achieved>=0?'+':''}${achieved}%</div><div class="sub">${call.exit_reason==='target_hit'?'🎯 Target hit':call.exit_reason==='stoploss_hit'?'🛑 Stopped':'🔔 Closed'}</div></div>`;
-    }
-  }
-
-  const meta=[];
-  if(call.vol_ratio) meta.push(`Volume: ${Number(call.vol_ratio).toFixed(1)}x avg`);
-  if(call.signal_time) meta.push(`Signal: ${call.signal_time}`);
-  if(call.exit_time) meta.push(`Closed: ${call.exit_time}`);
-  if(call.regime) meta.push(`Regime: ${call.regime}`);
-
-  // Signal breakdown
-  let signalRows='';
-  if(call.signals_detail && Object.keys(call.signals_detail).length){
-    const lmap={above_pdc:'Above Prev Close',orb:'ORB Breakout',vwap:'Above VWAP',rsi:'RSI Momentum',ema_trend:'EMA Trend',volume_spike:'Volume Spike',key_level:'Key Level'};
-    signalRows=`<div class="signal-breakdown">
-      <div class="sig-title">Signal Breakdown <span style="color:#8b949e">(${call.signals_aligned||0}/7 aligned · ${call.confidence!=null?Math.round(call.confidence*100)+'% confidence':''})</span></div>
-      <div class="sig-grid">${Object.entries(call.signals_detail).map(([k,v])=>{
-        const icon=v===1?'✓':v===-1?'✗':'–';
-        const c2=v===1?'sig-y':v===-1?'sig-n':'sig-neu';
-        return `<div class="sig-item ${c2}"><span class="sig-icon">${icon}</span>${lmap[k]||k}</div>`;
-      }).join('')}</div>
-    </div>`;
-  }
-
-  // Backtest meta row — % only, no amounts
-  const parts=[];
-  if(call.bt_win_rate) parts.push(`BT Win Rate: ${Math.round(call.bt_win_rate*100)}%`);
-  if(call.bt_sharpe) parts.push(`Sharpe: ${Number(call.bt_sharpe).toFixed(2)}`);
-  if(call.bt_strategy) parts.push(`Strategy: ${call.bt_strategy}`);
-  if(call.signals_aligned!=null) parts.push(`Signals: ${call.signals_aligned}/7`);
-  const btMeta=parts.length?`<div class="call-meta" style="margin-top:8px">${parts.map(p=>`<span>${p}</span>`).join('')}</div>`:'';
-
-  // Conviction badge
   const CONV_MAP={
-    'HIGH':       {cls:'conv-HIGH',   label:'HIGH CONVICTION'},
-    'MEDIUM':     {cls:'conv-MEDIUM', label:'MEDIUM CONVICTION'},
-    'BEST MATCH': {cls:'conv-BEST',   label:'BEST MATCH'},
-    'EXPLORATORY':{cls:'conv-EXPLO',  label:'EXPLORATORY'},
+    'HIGH':{cls:'conv-HIGH',label:'HIGH'},
+    'MEDIUM':{cls:'conv-MEDIUM',label:'MEDIUM'},
+    'BEST MATCH':{cls:'conv-BEST',label:'BEST MATCH'},
+    'EXPLORATORY':{cls:'conv-EXPLO',label:'EXPLORATORY'},
   };
-  const conv=call.conviction||'';
-  const convInfo=CONV_MAP[conv]||null;
+  const convInfo=CONV_MAP[call.conviction||'']||null;
   const convBadge=convInfo?`<span class="conv-badge ${convInfo.cls}">${convInfo.label}</span>`:'';
 
-  // Composite score breakdown
-  const SCORE_LABELS={
-    max_1day_return:'Max 1-Day Return (BT)',
-    win_rate:'Backtest Win Rate',
-    sharpe_ratio:'Sharpe Ratio',
-    confidence:'Live Signal Confidence',
-    expected_return:'Expected Return Today',
-    vol_ratio:'Volume Confirmation',
-  };
-  let scoreBlock='';
-  const sb=call.score_breakdown;
-  const cs=call.composite_score;
-  if(sb && Object.keys(sb).length && cs!=null){
-    const rows=Object.entries(sb).map(([k,pts])=>{
-      const pct=Math.min(pts/5*100,100);
-      return `<div class="score-row">
-        <span class="score-label">${SCORE_LABELS[k]||k}</span>
-        <div class="score-bar-wrap"><div class="score-bar" style="width:${pct}%"></div></div>
-        <span class="score-pts">${Number(pts).toFixed(1)}</span>
+  let body='';
+
+  if(a==='BUY'||a==='SELL'){
+    const tgtPct=call.target&&call.entry?((call.target/call.entry-1)*100).toFixed(2):'—';
+    const slPct=call.stoploss&&call.entry?((1-call.stoploss/call.entry)*100).toFixed(2):'—';
+    const rr=call.reward_risk?`${Number(call.reward_risk).toFixed(1)}:1`:'—';
+    const entryPrice=call.entry?`₹${Number(call.entry).toLocaleString('en-IN')}`:'—';
+    const exitPrice=call.exit?`₹${Number(call.exit).toLocaleString('en-IN')}`:'—';
+
+    // Status line
+    let statusLine='';
+    if(call.exit&&call.entry){
+      const achieved=((call.exit/call.entry-1)*100).toFixed(2);
+      const col=achieved>=0?'#3fb950':'#f85149';
+      const icon=call.exit_reason==='target_hit'?'🎯':call.exit_reason==='stoploss_hit'?'🛑':'🔔';
+      statusLine=`<div style="margin-top:14px;padding:10px 14px;background:#0d1117;border-radius:8px;display:flex;align-items:center;gap:12px">
+        <span style="font-size:20px">${icon}</span>
+        <div>
+          <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px">Result</div>
+          <div style="font-size:18px;font-weight:700;color:${col}">${achieved>=0?'+':''}${achieved}%</div>
+        </div>
+        <div style="margin-left:8px">
+          <div style="font-size:11px;color:#8b949e">Entry → Exit</div>
+          <div style="font-size:13px;color:#c9d1d9">${entryPrice} → ${exitPrice}</div>
+        </div>
+        ${call.exit_time?`<div style="margin-left:auto;font-size:12px;color:#8b949e">Closed ${call.exit_time}</div>`:''}
       </div>`;
-    }).join('');
-    scoreBlock=`<div class="score-block">
-      <div class="score-title">Composite Score Breakdown
-        <span class="score-total" style="float:right">${Number(cs).toFixed(1)}<span style="font-size:11px;color:#8b949e;font-weight:400">/100</span></span>
+    }
+
+    body=`
+      <div class="call-prices">
+        <div class="call-price-box"><div class="label">Entry</div><div class="value">${entryPrice}</div></div>
+        <div class="call-price-box"><div class="label">Target</div><div class="value green">+${tgtPct}%</div></div>
+        <div class="call-price-box"><div class="label">Stop</div><div class="value red">-${slPct}%</div></div>
+        <div class="call-price-box"><div class="label">R:R</div><div class="value yellow">${rr}</div></div>
+        <div class="call-price-box"><div class="label">Signals</div><div class="value blue">${call.signals_aligned||0}/7</div></div>
       </div>
-      ${rows}
-    </div>`;
+      ${statusLine}
+      <div class="call-meta" style="margin-top:10px">
+        ${call.signal_time?`<span>Triggered: ${call.signal_time}</span>`:''}
+        ${call.regime?`<span>Regime: ${call.regime}</span>`:''}
+        ${call.bt_win_rate?`<span>BT Win Rate: ${Math.round(call.bt_win_rate*100)}%</span>`:''}
+        ${call.composite_score!=null?`<span>Score: ${Number(call.composite_score).toFixed(0)}/100</span>`:''}
+      </div>`;
+  } else {
+    body=`<div class="call-reason" style="color:#8b949e;margin-top:8px">${call.reason||'No signal'}</div>`;
   }
 
-  const rankLabel=label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:8px;font-weight:600;letter-spacing:.5px">${label}</span>`:'';
-
   return `
-    <span class="call-badge ${badgeCls}">${a}</span>${rankLabel}${convBadge?'&nbsp;&nbsp;'+convBadge:''}
-    <div class="call-ticker">${ticker}</div>
-    <div class="call-reason">${call.reason||''}</div>
-    ${priceBoxes?`<div class="call-prices">${priceBoxes}</div>`:''}
-    ${meta.length?`<div class="call-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>`:''}
-    ${btMeta}
-    ${scoreBlock}
-    ${signalRows}
+    <span class="call-badge ${badgeCls}">${a}</span>
+    ${convBadge?'&nbsp;&nbsp;'+convBadge:''}
+    ${label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:6px;font-weight:600">${label}</span>`:''}
+    <div class="call-ticker" style="margin-top:8px">${ticker}</div>
+    ${body}
   `;
 }
 
-// ─── Today's Call ────────────────────────────────────────────────────────────
+// ─── Today's Signals ─────────────────────────────────────────────────────────
 function renderCall(todayCalls){
-  const morning = todayCalls.filter(c=>c.signal_session!=='MIDDAY');
-  const midday  = todayCalls.filter(c=>c.signal_session==='MIDDAY');
-
-  // 9:45 AM
-  const primary   = morning[0] || {action:'HOLD', reason:'No 9:45 AM call today'};
-  const secondary = morning[1] || null;
+  // All BUY calls today — sorted by signal_time, max 2
+  const buys = todayCalls.filter(c=>c.action==='BUY').slice(0,2);
+  const primary   = buys[0] || {action:'HOLD', reason:'Scanning every 5 min — signal appears here when criteria fire.'};
+  const secondary = buys[1] || null;
 
   document.getElementById('call-date').textContent=primary.date?`· ${primary.date}`:'';
-  const a=primary.action||'HOLD';
-  const cls=a==='BUY'?'buy':a==='SELL'?'sell':'hold';
+
   const heroEl=document.getElementById('call-hero');
-  heroEl.className=`call-hero ${cls}`;
-  heroEl.innerHTML=buildCallHTML(primary, secondary?'PRIMARY':'');
+  heroEl.className=`call-hero ${primary.action==='BUY'?'buy':'hold'}`;
+  heroEl.innerHTML=buildCallHTML(primary, secondary?'Signal 1':'');
 
   const secEl=document.getElementById('call-secondary');
+  const midEl=document.getElementById('call-midday');
   if(secondary){
     secEl.style.display='block';
-    secEl.className=`call-hero buy`;
-    secEl.innerHTML=buildCallHTML(secondary,'SECONDARY');
+    secEl.className='call-hero buy';
+    secEl.innerHTML=buildCallHTML(secondary,'Signal 2');
+    midEl.style.display='none';
   } else {
     secEl.style.display='none';
-  }
-
-  const allocEl=document.getElementById('alloc-box');
-  const note=primary.allocation_note||secondary?.allocation_note||'';
-  if(note && a==='BUY'){
-    allocEl.style.display='block';
-    allocEl.innerHTML=`
-      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">Capital Allocation Commentary</div>
-      <div style="font-size:13px;color:#c9d1d9;line-height:1.6">${note.replace(/►/g,'<br>►').replace(/^<br>/,'')}</div>
-    `;
-  } else {
-    allocEl.style.display='none';
-  }
-
-  // 11:00 AM midday call
-  const middayEl=document.getElementById('call-midday');
-  const middayAllocEl=document.getElementById('alloc-midday');
-  if(midday.length>0){
-    const mc=midday[0];
-    const ma=mc.action||'HOLD';
-    const mcls=ma==='BUY'?'buy':'hold';
-    middayEl.className=`call-hero ${mcls}`;
-    middayEl.innerHTML=buildCallHTML(mc,'11 AM');
-    const mn=mc.allocation_note||'';
-    if(mn && ma==='BUY'){
-      middayAllocEl.style.display='block';
-      middayAllocEl.innerHTML=`
-        <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">11 AM Allocation Commentary</div>
-        <div style="font-size:13px;color:#c9d1d9;line-height:1.6">${mn.replace(/►/g,'<br>►').replace(/^<br>/,'')}</div>
-      `;
-    } else {
-      middayAllocEl.style.display='none';
-    }
-  } else {
-    middayEl.className='call-hero hold';
-    middayEl.innerHTML='<div class="empty">Midday signal runs at 11:00 AM IST — appears here after scan completes.</div>';
-    middayAllocEl.style.display='none';
+    midEl.style.display='none';
   }
 }
 
@@ -419,45 +341,38 @@ function renderConsolidated(todayCalls){
   const icon=isWin?'✅':'❌';
 
   const rows=closed.map(c=>{
-    const p=c.pnl_inr||0;
-    const pc=isWin?'pnl-w':'pnl-l';
+    const movePct=c.entry&&c.exit?((c.exit/c.entry-1)*100).toFixed(2):null;
     const rsn={
-      'target_hit':'🎯 Target',
-      'stoploss_hit':'🛑 Stop',
-      'force_close_3:20PM':'🔔 Force close',
+      'target_hit':'🎯 Target hit',
+      'stoploss_hit':'🛑 Stop hit',
+      'force_close_3:20PM':'🔔 Force closed',
       'no_data':'⚠ No data',
     }[c.exit_reason]||c.exit_reason||'—';
-    const session=c.signal_session==='MIDDAY'?'11 AM':'9:45 AM';
+    const entryP=c.entry?`₹${Number(c.entry).toLocaleString('en-IN')}`:'—';
+    const exitP=c.exit?`₹${Number(c.exit).toLocaleString('en-IN')}`:'—';
     return `<tr>
-      <td style="color:#8b949e;font-size:12px">${session}</td>
       <td><strong>${c.ticker||'—'}</strong></td>
-      <td>₹${(c.entry||0).toLocaleString('en-IN')}</td>
-      <td>₹${(c.exit||0).toLocaleString('en-IN')}</td>
+      <td>${entryP}</td>
+      <td>${exitP}</td>
       <td>${rsn}</td>
-      <td class="${p>=0?'pnl-w':'pnl-l'}">${p>=0?'+':''}₹${Math.round(Math.abs(p)).toLocaleString('en-IN')}</td>
+      <td style="font-weight:700;font-size:15px" class="${movePct>=0?'pnl-w':'pnl-l'}">${movePct!=null?(movePct>=0?'+':'')+movePct+'%':'—'}</td>
+      <td style="color:#8b949e;font-size:12px">${c.exit_time||'—'}</td>
     </tr>`;
   }).join('');
 
   el.innerHTML=`
-    <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
-      <div style="font-size:28px;font-weight:800;color:${color}">${icon} ${pct>=0?'+':''}${pct}%</div>
-      <div>
-        <div style="font-size:20px;font-weight:700;color:${color}">${totalPnl>=0?'+':''}₹${Math.round(Math.abs(totalPnl)).toLocaleString('en-IN')}</div>
-        <div style="font-size:12px;color:#8b949e">Net P&L today · ${closed.length} trade(s) closed</div>
-      </div>
-      <div style="margin-left:auto;text-align:right">
-        <div style="font-size:13px;color:#8b949e">Running Capital</div>
-        <div style="font-size:18px;font-weight:700;color:#58a6ff">₹${(equityEnd||0).toLocaleString('en-IN')}</div>
-      </div>
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="font-size:36px;font-weight:800;color:${color}">${icon} ${pct>=0?'+':''}${pct}%</div>
+      <div style="font-size:12px;color:#8b949e">${closed.length} trade(s) closed today</div>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:#1c2128">
-        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Session</th>
         <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Stock</th>
         <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Entry</th>
         <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Exit</th>
-        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Reason</th>
-        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">P&L ₹</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Result</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Return %</th>
+        <th style="padding:8px 12px;text-align:left;font-size:10px;color:#8b949e;text-transform:uppercase">Exit Time</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>

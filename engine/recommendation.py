@@ -466,12 +466,12 @@ def generate_continuous_recommendation() -> dict:
             tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
             if tier1:
                 print(f"  [TIER 1] Criteria met: {tier1[0]['ticker']} at {now_ist.strftime('%I:%M %p')}")
-                return _build_result_midday(tier1[:1], now_ist, CONVICTION_HIGH, avail)
+                return _build_result_continuous(tier1[:1], now_ist, CONVICTION_HIGH, avail)
 
             tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
             if tier2 and tier2[0].get("signals_aligned", 0) >= 2:
                 print(f"  [TIER 2] Partial criteria: {tier2[0]['ticker']}")
-                return _build_result_midday(tier2[:1], now_ist, CONVICTION_MEDIUM, avail)
+                return _build_result_continuous(tier2[:1], now_ist, CONVICTION_MEDIUM, avail)
 
     # TIER 3
     orb_lookup = _load_orb_backtest()
@@ -482,7 +482,7 @@ def generate_continuous_recommendation() -> dict:
             scored = compute_composite_scores(sigs)
             tier1  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
             if tier1:
-                return _build_result_midday(tier1[:1], now_ist, CONVICTION_BEST, avail)
+                return _build_result_continuous(tier1[:1], now_ist, CONVICTION_BEST, avail)
 
     return _no_trade(f"No setup meeting criteria at {now_ist.strftime('%I:%M %p IST')}. Will retry.")
 
@@ -606,6 +606,46 @@ def generate_midday_recommendation() -> dict:
         return _build_result_midday(pool[:1], now_ist, CONVICTION_EXPLO, avail)
 
     return _no_trade("No midday setup found. Market may be choppy or capital fully deployed.")
+
+
+def _build_result_continuous(top_sigs: list, now_ist: datetime, conviction: str, avail_capital: float) -> dict:
+    """Continuous scan result — no fixed session label, uses available capital."""
+    built = []
+    for s in top_sigs:
+        c = _build_call(s, now_ist, conviction)
+        if c:
+            rm = RiskManager(capital=avail_capital)
+            sizing = rm.kelly_position(
+                win_rate=max(s.get("bt_win_rate", 0.5), 0.5),
+                entry=c["entry"], stop=c["stop_loss"]
+            )
+            c.update({
+                "shares":         sizing["shares"],
+                "position_value": sizing["position_value"],
+                "risk_amount":    sizing["risk_amount"],
+                "risk_pct":       sizing["risk_pct"],
+                "kelly_pct":      sizing["kelly_pct"],
+            })
+            built.append(c)
+
+    if not built and top_sigs:
+        s = top_sigs[0]
+        if s.get("current_price", 0) > 0:
+            built.append(_force_call(s, now_ist, conviction))
+
+    if not built:
+        return _no_trade("Could not build valid levels.")
+
+    allocation = _allocation_commentary(built, capital=avail_capital)
+    return {
+        "action":           "BUY",
+        "calls":            built,
+        "allocation":       allocation,
+        "conviction":       conviction,
+        "signal_session":   now_ist.strftime("%I:%M %p"),   # actual trigger time, not "MIDDAY"
+        "timestamp":        now_ist.isoformat(),
+        **built[0],
+    }
 
 
 def _build_result_midday(top_sigs: list, now_ist: datetime, conviction: str, avail_capital: float) -> dict:
