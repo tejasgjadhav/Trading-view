@@ -171,6 +171,19 @@ a{color:#58a6ff;text-decoration:none}
     </div>
   </div>
 
+  <!-- WEEKLY REVIEW -->
+  <section>
+    <div class="table-wrap">
+      <div class="thead">
+        <h2>Weekly Review <span id="review-week" style="color:#8b949e;font-weight:400;font-size:12px"></span></h2>
+        <span style="font-size:12px;color:#8b949e">Auto-runs every Sunday · Last week signal replay + weight update</span>
+      </div>
+      <div id="weekly-review-panel" style="padding:16px">
+        <div class="empty">Weekly review loads every Sunday after 6:30 PM IST.</div>
+      </div>
+    </div>
+  </section>
+
   <!-- DAILY CALL TRACKER -->
   <section>
     <div class="table-wrap">
@@ -698,6 +711,11 @@ async function loadAll(){
     }catch{ renderScanLog([]); }
 
     try{
+      const wr=await fetchJSON('data/weekly_review.json');
+      renderWeeklyReview(wr);
+    }catch{ /* not yet generated */ }
+
+    try{
       const bt=await fetchJSON('results/intraday_backtest.json');
       renderBacktest(bt);
       drawEquityChart(calls,bt.best_trades||[]);
@@ -707,6 +725,112 @@ async function loadAll(){
   }catch(e){
     document.getElementById('call-hero').innerHTML=`<div class="empty">Signal runs at 9:45 AM IST on weekdays. First call will appear after market opens.<br><small style="color:#484f58;margin-top:8px;display:block">${e.message}</small></div>`;
   }
+}
+
+// ─── Weekly Review ────────────────────────────────────────────────────────────
+function renderWeeklyReview(r){
+  const el=document.getElementById('weekly-review-panel');
+  const wk=document.getElementById('review-week');
+  if(!el) return;
+  if(r.week_start) wk.textContent=`${r.week_start} → ${r.week_end}`;
+
+  if(r.no_signals_week||!r.signals_generated){
+    el.innerHTML='<div class="empty">No qualifying signals last week — gates were too strict or market was rangebound. Weights unchanged.</div>';
+    return;
+  }
+
+  const wrCol=r.win_rate>=0.6?'#3fb950':r.win_rate>=0.4?'#d29922':'#f85149';
+
+  // Signal importance rows
+  const sigRows=Object.entries(r.per_signal_stats||{}).sort((a,b)=>b[1].importance-a[1].importance).map(([k,v])=>{
+    const imp=v.importance;
+    const col=imp>0.2?'#3fb950':imp<-0.1?'#f85149':'#d29922';
+    const bar='█'.repeat(Math.max(0,Math.round(Math.abs(imp)*8)));
+    return `<tr>
+      <td style="padding:5px 10px;color:#c9d1d9;text-transform:capitalize">${k.replace(/_/g,' ')}</td>
+      <td style="padding:5px 10px;text-align:center;color:#3fb950">${(v.win_pct*100).toFixed(0)}%</td>
+      <td style="padding:5px 10px;text-align:center;color:#f85149">${(v.loss_pct*100).toFixed(0)}%</td>
+      <td style="padding:5px 10px;color:${col};font-weight:700">${imp>=0?'+':''}${imp.toFixed(2)} <span style="font-size:10px">${bar}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Weight comparison rows
+  const wRows=Object.keys(r.old_weights||{}).map(k=>{
+    const o=(r.old_weights[k]*100).toFixed(1);
+    const n=(r.new_weights[k]*100).toFixed(1);
+    const changed=Math.abs(r.old_weights[k]-r.new_weights[k])>0.0001;
+    return `<tr>
+      <td style="padding:5px 10px;color:#c9d1d9;text-transform:capitalize">${k.replace(/_/g,' ')}</td>
+      <td style="padding:5px 10px;text-align:right;color:#8b949e">${o}%</td>
+      <td style="padding:5px 10px;text-align:right;color:${changed?'#58a6ff':'#8b949e'};font-weight:${changed?700:400}">${n}%${changed?' ↑':''}</td>
+    </tr>`;
+  }).join('');
+
+  // Recent replayed trades
+  const tradeRows=(r.replayed_trades||[]).slice(-10).reverse().map(t=>{
+    const col=t.outcome==='WIN'?'#3fb950':t.outcome==='LOSS'?'#f85149':'#8b949e';
+    const icon=t.outcome==='WIN'?'🎯':t.outcome==='LOSS'?'🛑':'🔔';
+    return `<tr>
+      <td style="padding:5px 10px;color:#8b949e;font-size:11px">${t.date}</td>
+      <td style="padding:5px 10px"><strong>${companyName(t.ticker)}</strong><br><span style="font-size:10px;color:#8b949e">${(t.ticker||'').replace('.NS','')}</span></td>
+      <td style="padding:5px 10px;text-align:center">${t.signals_aligned}/7</td>
+      <td style="padding:5px 10px;text-align:center;color:${col};font-weight:700">${icon} ${t.outcome}</td>
+      <td style="padding:5px 10px;text-align:right;color:${col}">${t.pnl_pct>=0?'+':''}${t.pnl_pct}%</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML=`
+    <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid #30363d">
+      <div><div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Signals Replayed</div>
+           <div style="font-size:28px;font-weight:800;color:#58a6ff">${r.signals_generated}</div></div>
+      <div><div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Replay Win Rate</div>
+           <div style="font-size:28px;font-weight:800;color:${wrCol}">${(r.win_rate*100).toFixed(0)}%</div></div>
+      <div><div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">W / L / FC</div>
+           <div style="font-size:28px;font-weight:800;color:#c9d1d9">${r.wins}W · ${r.losses}L · ${r.force_closes}FC</div></div>
+      <div><div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Stocks Scanned</div>
+           <div style="font-size:28px;font-weight:800;color:#c9d1d9">${r.tickers_scanned}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+      <div>
+        <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Signal Importance — Win% vs Loss%</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#1c2128">
+            <th style="padding:5px 10px;text-align:left;font-size:10px;color:#8b949e">Signal</th>
+            <th style="padding:5px 10px;text-align:center;font-size:10px;color:#3fb950">Win%</th>
+            <th style="padding:5px 10px;text-align:center;font-size:10px;color:#f85149">Loss%</th>
+            <th style="padding:5px 10px;text-align:left;font-size:10px;color:#8b949e">Edge</th>
+          </tr></thead>
+          <tbody>${sigRows}</tbody>
+        </table>
+      </div>
+      <div>
+        <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Score Weight Update</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:#1c2128">
+            <th style="padding:5px 10px;text-align:left;font-size:10px;color:#8b949e">Factor</th>
+            <th style="padding:5px 10px;text-align:right;font-size:10px;color:#8b949e">Old</th>
+            <th style="padding:5px 10px;text-align:right;font-size:10px;color:#58a6ff">New</th>
+          </tr></thead>
+          <tbody>${wRows}</tbody>
+        </table>
+        <div style="margin-top:10px;font-size:11px;color:#8b949e">
+          ${r.weights_changed?'⬆ Weights nudged (70% momentum blend — max ±1.5% per week)':'✓ Weights stable — no significant change'}
+        </div>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Last Week's Replayed Trades</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#1c2128">
+          <th style="padding:5px 10px;text-align:left;font-size:10px;color:#8b949e">Date</th>
+          <th style="padding:5px 10px;text-align:left;font-size:10px;color:#8b949e">Stock</th>
+          <th style="padding:5px 10px;text-align:center;font-size:10px;color:#8b949e">Signals</th>
+          <th style="padding:5px 10px;text-align:center;font-size:10px;color:#8b949e">Outcome</th>
+          <th style="padding:5px 10px;text-align:right;font-size:10px;color:#8b949e">P&L</th>
+        </tr></thead>
+        <tbody>${tradeRows||'<tr><td colspan="5" style="text-align:center;padding:16px;color:#484f58">No replayed trades</td></tr>'}</tbody>
+      </table>
+    </div>`;
 }
 
 // ─── Scan Activity Log ────────────────────────────────────────────────────────

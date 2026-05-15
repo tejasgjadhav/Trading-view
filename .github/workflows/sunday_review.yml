@@ -1,0 +1,46 @@
+name: "Sunday Weekly Review — Signal Replay & Weight Update"
+
+on:
+  schedule:
+    # Every Sunday at 6:30 PM IST = 13:00 UTC
+    - cron: '0 13 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  weekly-review:
+    name: "Weekly Signal Replay & Weight Nudge"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - run: pip install -r requirements.txt
+
+      - name: Run weekly review
+        run: python -m engine.weekly_review
+        env:
+          PYTHONUNBUFFERED: '1'
+          TZ: 'Asia/Kolkata'
+
+      - name: Commit review results and updated weights
+        run: |
+          git config user.name "Trading Bot"
+          git config user.email "trading-bot@github.com"
+          git add data/weekly_review.json engine/config.py
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "📊 Weekly review — $(TZ=Asia/Kolkata date '+%d %b %Y') | Weights updated"
+          git pull --rebase origin main && git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
