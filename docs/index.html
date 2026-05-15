@@ -225,12 +225,46 @@ async function fetchJSON(p){
   return r.json();
 }
 
+// ─── Ticker → Company Name ────────────────────────────────────────────────────
+const COMPANY_NAMES={
+  'ADANIENT.NS':'Adani Enterprises','ADANIPORTS.NS':'Adani Ports',
+  'APOLLOHOSP.NS':'Apollo Hospitals','ASIANPAINT.NS':'Asian Paints',
+  'AXISBANK.NS':'Axis Bank','BAJAJ-AUTO.NS':'Bajaj Auto',
+  'BAJAJFINSV.NS':'Bajaj Finserv','BAJFINANCE.NS':'Bajaj Finance',
+  'BPCL.NS':'BPCL','BHARTIARTL.NS':'Bharti Airtel',
+  'BRITANNIA.NS':'Britannia','CIPLA.NS':'Cipla',
+  'COALINDIA.NS':'Coal India','DIVISLAB.NS':'Divi\'s Lab',
+  'DRREDDY.NS':'Dr Reddy\'s','EICHERMOT.NS':'Eicher Motors',
+  'GRASIM.NS':'Grasim','HCLTECH.NS':'HCL Tech',
+  'HDFCBANK.NS':'HDFC Bank','HDFCLIFE.NS':'HDFC Life',
+  'HEROMOTOCO.NS':'Hero MotoCorp','HINDALCO.NS':'Hindalco',
+  'HINDUNILVR.NS':'Hindustan Unilever','ICICIBANK.NS':'ICICI Bank',
+  'ITC.NS':'ITC','INDUSINDBK.NS':'IndusInd Bank',
+  'INFY.NS':'Infosys','JSWSTEEL.NS':'JSW Steel',
+  'KOTAKBANK.NS':'Kotak Mahindra','LT.NS':'Larsen & Toubro',
+  'LTIM.NS':'LTIMindtree','M&M.NS':'Mahindra & Mahindra',
+  'MARUTI.NS':'Maruti Suzuki','NESTLEIND.NS':'Nestle India',
+  'NTPC.NS':'NTPC','ONGC.NS':'ONGC',
+  'POWERGRID.NS':'Power Grid','RELIANCE.NS':'Reliance',
+  'SBILIFE.NS':'SBI Life','SBIN.NS':'State Bank of India',
+  'SUNPHARMA.NS':'Sun Pharma','TCS.NS':'TCS',
+  'TATACONSUM.NS':'Tata Consumer','TATAMOTORS.NS':'Tata Motors',
+  'TATASTEEL.NS':'Tata Steel','TECHM.NS':'Tech Mahindra',
+  'TITAN.NS':'Titan','ULTRACEMCO.NS':'UltraTech Cement',
+  'WIPRO.NS':'Wipro','ZOMATO.NS':'Zomato',
+};
+function companyName(ticker){
+  if(!ticker) return '—';
+  return COMPANY_NAMES[ticker]||ticker.replace('.NS','');
+}
+
 // ─── Build a single call card HTML ──────────────────────────────────────────
 function buildCallHTML(call, label=''){
   const a=call.action||'HOLD';
   const cls=a==='BUY'?'buy':a==='SELL'?'sell':'hold';
   const badgeCls=`badge-${cls.toLowerCase()}`;
   const ticker=call.ticker||'—';
+  const company=companyName(ticker);
 
   const CONV_MAP={
     'HIGH':{cls:'conv-HIGH',label:'HIGH'},
@@ -270,11 +304,15 @@ function buildCallHTML(call, label=''){
       </div>`;
     }
 
+    const tgtPrice=call.target?`₹${Number(call.target).toLocaleString('en-IN')}`:'—';
+    const slPrice=call.stoploss?`₹${Number(call.stoploss).toLocaleString('en-IN')}`:'—';
     body=`
       <div class="call-prices">
         <div class="call-price-box"><div class="label">Entry</div><div class="value">${entryPrice}</div></div>
-        <div class="call-price-box"><div class="label">Target</div><div class="value green">+${tgtPct}%</div></div>
-        <div class="call-price-box"><div class="label">Stop</div><div class="value red">-${slPct}%</div></div>
+        <div class="call-price-box"><div class="label">Target ₹</div><div class="value green">${tgtPrice}</div></div>
+        <div class="call-price-box"><div class="label">Target %</div><div class="value green">+${tgtPct}%</div></div>
+        <div class="call-price-box"><div class="label">Stop ₹</div><div class="value red">${slPrice}</div></div>
+        <div class="call-price-box"><div class="label">Stop %</div><div class="value red">-${slPct}%</div></div>
         <div class="call-price-box"><div class="label">R:R</div><div class="value yellow">${rr}</div></div>
         <div class="call-price-box"><div class="label">Signals</div><div class="value blue">${call.signals_aligned||0}/7</div></div>
       </div>
@@ -293,7 +331,8 @@ function buildCallHTML(call, label=''){
     <span class="call-badge ${badgeCls}">${a}</span>
     ${convBadge?'&nbsp;&nbsp;'+convBadge:''}
     ${label?`<span style="font-size:10px;background:#21262d;color:#8b949e;padding:2px 8px;border-radius:4px;margin-left:6px;font-weight:600">${label}</span>`:''}
-    <div class="call-ticker" style="margin-top:8px">${ticker}</div>
+    <div class="call-ticker" style="margin-top:8px">${company}</div>
+    <div style="font-size:12px;color:#8b949e;margin-bottom:4px">${ticker.replace('.NS','')}</div>
     ${body}
   `;
 }
@@ -351,7 +390,7 @@ function renderConsolidated(todayCalls){
     const entryP=c.entry?`₹${Number(c.entry).toLocaleString('en-IN')}`:'—';
     const exitP=c.exit?`₹${Number(c.exit).toLocaleString('en-IN')}`:'—';
     return `<tr>
-      <td><strong>${c.ticker||'—'}</strong></td>
+      <td><strong>${companyName(c.ticker)}</strong><br><span style="font-size:11px;color:#8b949e">${(c.ticker||'').replace('.NS','')}</span></td>
       <td>${entryP}</td>
       <td>${exitP}</td>
       <td>${rsn}</td>
@@ -563,7 +602,7 @@ function renderTradeLog(calls){
     return `<tr>
       <td>${c.date}</td>
       <td>${session}</td>
-      <td><strong>${c.ticker||'—'}</strong></td>
+      <td><strong>${companyName(c.ticker)}</strong><br><span style="font-size:11px;color:#8b949e">${(c.ticker||'').replace('.NS','')}</span></td>
       <td>${c.entry?`₹${c.entry.toLocaleString('en-IN')}`:'—'}</td>
       <td style="color:#3fb950">${tgtPct}</td>
       <td style="color:#f85149">${slPct}</td>
