@@ -201,7 +201,7 @@ a{color:#58a6ff;text-decoration:none}
       <table>
         <thead>
           <tr>
-            <th>Time</th><th>Result</th><th>Stocks Found</th><th>Score</th><th>Signals</th><th>Reason</th>
+            <th>Time</th><th>Time Left</th><th>Result</th><th>Stocks Found</th><th>Score</th><th>Signals</th><th>Reason</th>
           </tr>
         </thead>
         <tbody id="scan-log"></tbody>
@@ -728,8 +728,13 @@ function renderScanLog(scans){
       : '—';
     const sigs=isBuy&&s.signals.length ? s.signals.map(n=>`${n}/7`).join(', ') : '—';
     const reason=!isBuy&&s.reason ? `<span style="color:#484f58;font-size:11px">${s.reason}</span>` : '';
+    const timeMult = s.time_mult != null ? s.time_mult : null;
+    const timeMultCol = timeMult != null
+      ? `<span style="color:${timeMult>0.6?'#3fb950':timeMult>0.3?'#d29922':'#f85149'}">${Math.round(timeMult*100)}%</span>`
+      : '—';
     return `<tr>
       <td style="white-space:nowrap;color:#c9d1d9">${s.time||'—'}</td>
+      <td style="text-align:center">${timeMultCol}</td>
       <td style="color:${resultCol};font-weight:600">${resultIcon}</td>
       <td>${stocks}</td>
       <td style="color:#58a6ff">${isBuy&&s.scores.length?s.scores.join(', '):'—'}</td>

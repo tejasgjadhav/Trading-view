@@ -45,6 +45,7 @@ WATCHLIST = [
 ENTRY_TIME        = "09:45"   # Morning ORB entry
 ENTRY_TIME_MIDDAY = "11:00"   # Midday continuation entry
 KILL_SWITCH_TIME  = "15:20"   # Force-close all positions at 3:20 PM (10 min before close)
+SIGNAL_CUTOFF     = "14:00"   # No new signals after 2 PM — not enough time to hit target
 MARKET_OPEN       = "09:15"
 MARKET_CLOSE      = "15:30"
 
@@ -87,6 +88,7 @@ SLIPPAGE_PERCENT        = 0.001  # 0.1%
 
 # --- COMPOSITE SCORE WEIGHTS (must sum to 1.0) ---
 # Score is 0–100; each factor normalized to 0–1 before weighting
+# time_remaining: multiplier applied AFTER weighted sum — penalizes late-day signals
 SCORE_WEIGHTS = {
     "max_1day_return":  0.25,   # Best single-day backtest gain potential
     "win_rate":         0.20,   # Historical reliability
@@ -95,6 +97,10 @@ SCORE_WEIGHTS = {
     "expected_return":  0.10,   # Entry→target % today
     "vol_ratio":        0.10,   # Volume confirmation (capped at 3×)
 }
+# Time window for scoring: 9:45 AM = 1.0x multiplier, 2:00 PM = 0.0x
+# Signals before 9:45 are blocked; after 2:00 PM are blocked by SIGNAL_CUTOFF guard
+SCORE_TIME_START  = "09:45"   # Full score at this time
+SCORE_TIME_END    = "14:00"   # Zero score at this time (matches SIGNAL_CUTOFF)
 
 # --- FALLBACK TICKERS (expanded NSE universe for deep scan) ---
 ORB_BACKTEST_PATH = "results/intraday_backtest.json"  # 60-day data for 95 stocks

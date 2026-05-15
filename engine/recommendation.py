@@ -24,7 +24,7 @@ from engine.config import (
     MIN_SIGNALS_REQUIRED, MIN_SIGNALS_WATCHLIST,
     MIN_REWARD_RISK, MIN_RETURN_PCT, CAPITAL, KILL_SWITCH_TIME,
     ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH,
-    MORNING_ENTRY_BAR, MIDDAY_ENTRY_BAR
+    MORNING_ENTRY_BAR, MIDDAY_ENTRY_BAR, SCORE_TIME_START, SCORE_TIME_END,
 )
 from engine.data_fetcher import fetch_historical, fetch_intraday, get_previous_day_levels
 from engine.signals import compute_signals
@@ -59,13 +59,36 @@ def _normalize(values: list, cap: float = None) -> list:
     return [(v - lo) / (hi - lo) for v in arr]
 
 
-def compute_composite_scores(candidates: list) -> list:
+def _time_remaining_multiplier(now_ist: datetime = None) -> float:
+    """
+    Returns a 0.0–1.0 multiplier based on how much tradeable time is left.
+    9:45 AM = 1.0 (full day ahead), 2:00 PM = 0.0 (cutoff).
+    Applied to composite score so late signals rank lower automatically.
+    """
+    if now_ist is None:
+        now_ist = datetime.now(IST)
+    def to_minutes(t: str) -> int:
+        h, m = map(int, t.split(":"))
+        return h * 60 + m
+    now_min   = now_ist.hour * 60 + now_ist.minute
+    start_min = to_minutes(SCORE_TIME_START)  # 9:45 AM
+    end_min   = to_minutes(SCORE_TIME_END)    # 2:00 PM
+    if now_min <= start_min: return 1.0
+    if now_min >= end_min:   return 0.0
+    return round((end_min - now_min) / (end_min - start_min), 3)
+
+
+def compute_composite_scores(candidates: list, now_ist: datetime = None) -> list:
     """
     Add composite_score (0-100) and score_breakdown to each candidate.
     Normalizes each factor across the pool before weighting.
+    Final score is multiplied by time_remaining (1.0 at 9:45 AM → 0.0 at 2:00 PM)
+    so late signals are automatically deprioritised.
     """
     if not candidates:
         return candidates
+
+    time_mult = _time_remaining_multiplier(now_ist)
 
     def col(key):
         return [float(c.get(key, 0) or 0) for c in candidates]
@@ -80,9 +103,10 @@ def compute_composite_scores(candidates: list) -> list:
     }
 
     for i, c in enumerate(candidates):
-        score = sum(SCORE_WEIGHTS[k] * factors[k][i] for k in SCORE_WEIGHTS) * 100
-        c["composite_score"] = round(score, 1)
-        c["score_breakdown"] = {k: round(SCORE_WEIGHTS[k] * factors[k][i] * 100, 1) for k in SCORE_WEIGHTS}
+        raw_score = sum(SCORE_WEIGHTS[k] * factors[k][i] for k in SCORE_WEIGHTS) * 100
+        c["composite_score"]   = round(raw_score * time_mult, 1)
+        c["time_mult"]         = time_mult
+        c["score_breakdown"]   = {k: round(SCORE_WEIGHTS[k] * factors[k][i] * 100, 1) for k in SCORE_WEIGHTS}
 
     return sorted(candidates, key=lambda x: x["composite_score"], reverse=True)
 
@@ -419,9 +443,9 @@ def generate_continuous_recommendation() -> dict:
     if hour < 9 or (hour == 9 and minute < 45):
         return _no_trade(f"Opening range not yet formed — wait until 9:45 AM IST (now {hour:02d}:{minute:02d}).")
 
-    # Guard: market close
-    if hour >= 15 and minute >= 20:
-        return _no_trade("Past force-close time (3:20 PM IST). No new signals.")
+    # Guard: no new signals after 2:00 PM — not enough time to hit target
+    if hour >= 14:
+        return _no_trade("Past 2:00 PM IST signal cutoff. No new entries — positions close at 3:20 PM.")
 
     avail = _remaining_capital()
     if avail < 5000:
@@ -431,8 +455,10 @@ def generate_continuous_recommendation() -> dict:
     issued_today = _get_open_positions_today_all()
     issued_tickers = {c["ticker"] for c in issued_today}
 
+    time_mult = _time_remaining_multiplier(now_ist)
     print(f"\n{'='*65}")
     print(f"  CONTINUOUS SCAN — {now_ist.strftime('%d %b %Y  %I:%M %p IST')}")
+    print(f"  Time multiplier: {time_mult:.2f}x  (1.0 at 9:45 AM → 0.0 at 2:00 PM)")
     print(f"  Issued today: {issued_tickers or 'none'}")
     print(f"  Available capital: ₹{avail:,.0f}")
     print(f"{'='*65}\n")
@@ -455,7 +481,7 @@ def generate_continuous_recommendation() -> dict:
         top_tickers = _filtered(list(bt_df["ticker"].unique()[:15]))
         if top_tickers:
             sigs   = _scan_live(top_tickers, bt_lookup, entry_bar_idx=DYNAMIC)
-            scored = compute_composite_scores(sigs)
+            scored = compute_composite_scores(sigs, now_ist)
 
             tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
             all_candidates.extend([(s, CONVICTION_HIGH) for s in tier1])
@@ -472,7 +498,7 @@ def generate_continuous_recommendation() -> dict:
         top_orb = [t for t in top_orb if t not in candidate_tickers]
         if top_orb:
             sigs   = _scan_live(top_orb, orb_lookup, entry_bar_idx=DYNAMIC)
-            scored = compute_composite_scores(sigs)
+            scored = compute_composite_scores(sigs, now_ist)
             tier3  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
             all_candidates.extend([(s, CONVICTION_BEST) for s in tier3])
 

@@ -286,14 +286,17 @@ def save_scan_log(rec: dict):
     else:
         log = {"scans": []}
 
+    calls_list = rec.get("calls", []) if rec.get("action") == "BUY" else []
+    time_mult  = calls_list[0].get("time_mult", 1.0) if calls_list else None
     entry = {
-        "date":      today,
-        "time":      now_ist.strftime("%I:%M %p IST"),
-        "action":    rec.get("action", "NO_TRADE"),
-        "reason":    rec.get("reason", ""),
-        "tickers":   [c["ticker"] for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
-        "scores":    [round(c.get("composite_score", 0), 1) for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
-        "signals":   [c.get("signals_aligned", 0) for c in rec.get("calls", [])] if rec.get("action") == "BUY" else [],
+        "date":       today,
+        "time":       now_ist.strftime("%I:%M %p IST"),
+        "action":     rec.get("action", "NO_TRADE"),
+        "reason":     rec.get("reason", ""),
+        "tickers":    [c["ticker"] for c in calls_list],
+        "scores":     [round(c.get("composite_score", 0), 1) for c in calls_list],
+        "signals":    [c.get("signals_aligned", 0) for c in calls_list],
+        "time_mult":  round(time_mult, 2) if time_mult is not None else None,
         "conviction": rec.get("conviction", ""),
     }
 
