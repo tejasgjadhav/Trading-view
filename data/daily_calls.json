@@ -88,13 +88,13 @@
       },
       "allocation_note": "Signal 1 of 2 today. Invest \u20b949,279 (49.2% of \u20b91L) in ADANIENT.NS. Buy 18 shares @ \u20b92,737.70. Target \u20b92,901.74 (+6.0%) | Stop \u20b92,655.68. Conviction: HIGH | Composite score: 82.5/100.",
       "equity_start": 100152.0,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 2710.8,
+      "exit_time": "03:20 PM",
+      "exit_reason": "force_close_3:20PM",
+      "pnl_pct": -0.51,
+      "pnl_inr": -514.0,
+      "equity_end": 99638.0,
+      "status": "closed"
     },
     {
       "date": "2026-05-15",
@@ -137,13 +137,13 @@
       },
       "allocation_note": "Signal 2 of 2 today. Invest \u20b937,870 (37.8% of remaining capital) in BRITANNIA.NS. Buy 7 shares @ \u20b95,410.00. Target \u20b95,518.20 (+2.0%) | Stop \u20b95,355.90. Conviction: HIGH | Composite score: 76.5/100.",
       "equity_start": 100152.0,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 5409.5,
+      "exit_time": "03:20 PM",
+      "exit_reason": "force_close_3:20PM",
+      "pnl_pct": -0.03,
+      "pnl_inr": -26.0,
+      "equity_end": 99612.0,
+      "status": "closed"
     },
     {
       "date": "2026-05-15",
@@ -186,13 +186,13 @@
       },
       "allocation_note": "Signal 3 today (cap exceeded \u2014 logged for reference). Invest \u20b97,857 in LT.NS. Buy 2 shares @ \u20b93,928.60. Target \u20b94,007.17 (+2.0%) | Stop \u20b93,869.67. Conviction: HIGH | Composite score: 62.8/100.",
       "equity_start": 100152.0,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 3907.6,
+      "exit_time": "03:20 PM",
+      "exit_reason": "force_close_3:20PM",
+      "pnl_pct": -0.05,
+      "pnl_inr": -47.0,
+      "equity_end": 99565.0,
+      "status": "closed"
     },
     {
       "date": "2026-05-15",
@@ -234,13 +234,13 @@
       },
       "allocation_note": "Two signals today \u2014 split \u20b91L as follows: \u25ba PRIMARY ITC.NS (score 95/100, BEST MATCH): \u20b92,476 (48.1%) \u2014 7 shares @ \u20b9309.55, target +2.4%. \u25ba SECONDARY TITAN.NS (score 73/100, BEST MATCH): \u20b91,898 (36.9%) \u2014 1 shares @ \u20b94,174.40, target +1.9%. \u25ba Cash buffer \u20b9772.",
       "equity_start": 100152.0,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 309.35,
+      "exit_time": "03:20 PM",
+      "exit_reason": "force_close_3:20PM",
+      "pnl_pct": -0.0,
+      "pnl_inr": -3.0,
+      "equity_end": 99563.0,
+      "status": "closed"
     },
     {
       "date": "2026-05-15",
@@ -282,14 +282,14 @@
       },
       "allocation_note": "Two signals today \u2014 split \u20b91L as follows: \u25ba PRIMARY ITC.NS (score 95/100, BEST MATCH): \u20b92,476 (48.1%) \u2014 7 shares @ \u20b9309.55, target +2.4%. \u25ba SECONDARY TITAN.NS (score 73/100, BEST MATCH): \u20b91,898 (36.9%) \u2014 1 shares @ \u20b94,174.40, target +1.9%. \u25ba Cash buffer \u20b9772.",
       "equity_start": 100152.0,
-      "exit": null,
-      "exit_time": null,
-      "exit_reason": null,
-      "pnl_pct": null,
-      "pnl_inr": null,
-      "equity_end": null,
-      "status": "open"
+      "exit": 4165.8,
+      "exit_time": "03:20 PM",
+      "exit_reason": "force_close_3:20PM",
+      "pnl_pct": -0.01,
+      "pnl_inr": -11.0,
+      "equity_end": 99551.0,
+      "status": "closed"
     }
   ],
-  "equity": 100152.0
+  "equity": 99551.0
 }
