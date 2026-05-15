@@ -25,6 +25,7 @@ from engine.config import (
     MIN_REWARD_RISK, MIN_RETURN_PCT, CAPITAL, KILL_SWITCH_TIME,
     ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH,
     MORNING_ENTRY_BAR, MIDDAY_ENTRY_BAR, SCORE_TIME_START, SCORE_TIME_END,
+    MIN_VOL_RATIO, MIN_RETURN_PER_HOUR,
 )
 from engine.data_fetcher import fetch_historical, fetch_intraday, get_previous_day_levels
 from engine.signals import compute_signals
@@ -57,6 +58,34 @@ def _normalize(values: list, cap: float = None) -> list:
     if hi == lo:
         return [1.0] * len(arr)
     return [(v - lo) / (hi - lo) for v in arr]
+
+
+def _passes_quality_gates(sig: dict, now_ist: datetime = None) -> tuple:
+    """
+    Hard entry quality gates based on today's losses:
+    1. Volume >= 1× average (low vol = no momentum)
+    2. Expected return achievable in time remaining (≥ MIN_RETURN_PER_HOUR per hour left)
+    Returns (passes: bool, reason: str)
+    """
+    if now_ist is None:
+        now_ist = datetime.now(IST)
+
+    # Gate 1: Volume confirmation
+    vol = sig.get("vol_ratio") or 0
+    if vol < MIN_VOL_RATIO:
+        return False, f"Low volume ({vol:.2f}× avg < {MIN_VOL_RATIO}×)"
+
+    # Gate 2: Time-to-target feasibility
+    # Hours remaining until 2 PM cutoff
+    cutoff_min = 14 * 60  # 2:00 PM
+    now_min    = now_ist.hour * 60 + now_ist.minute
+    hours_left = max((cutoff_min - now_min) / 60, 0.25)  # min 15 min
+    exp_return = sig.get("expected_return", 0) or 0
+    required   = MIN_RETURN_PER_HOUR * hours_left
+    if exp_return < required:
+        return False, f"Target {exp_return:.1f}% too low for {hours_left:.1f}h left (need {required:.1f}%)"
+
+    return True, ""
 
 
 def _time_remaining_multiplier(now_ist: datetime = None) -> float:
@@ -483,11 +512,20 @@ def generate_continuous_recommendation() -> dict:
             sigs   = _scan_live(top_tickers, bt_lookup, entry_bar_idx=DYNAMIC)
             scored = compute_composite_scores(sigs, now_ist)
 
-            tier1 = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            def _quality(s):
+                ok, reason = _passes_quality_gates(s, now_ist)
+                if not ok:
+                    print(f"  [SKIP] {s['ticker']}: {reason}")
+                return ok
+
+            tier1 = [s for s in scored if s.get("direction") == "LONG"
+                     and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED
+                     and _quality(s)]
             all_candidates.extend([(s, CONVICTION_HIGH) for s in tier1])
 
             if not tier1:
-                tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST]
+                tier2 = [s for s in scored if s.get("signals_aligned", 0) >= MIN_SIGNALS_WATCHLIST
+                         and _quality(s)]
                 all_candidates.extend([(s, CONVICTION_MEDIUM) for s in tier2])
 
     # TIER 3 — ORB universe, add stocks not already in candidates
@@ -499,7 +537,9 @@ def generate_continuous_recommendation() -> dict:
         if top_orb:
             sigs   = _scan_live(top_orb, orb_lookup, entry_bar_idx=DYNAMIC)
             scored = compute_composite_scores(sigs, now_ist)
-            tier3  = [s for s in scored if s.get("direction") == "LONG" and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED]
+            tier3  = [s for s in scored if s.get("direction") == "LONG"
+                      and s.get("signals_aligned", 0) >= MIN_SIGNALS_REQUIRED
+                      and _passes_quality_gates(s, now_ist)[0]]
             all_candidates.extend([(s, CONVICTION_BEST) for s in tier3])
 
     if not all_candidates:

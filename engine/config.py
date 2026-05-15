@@ -77,8 +77,12 @@ STAT_ARB_ZSCORE_EXIT       = 0.5
 VOLUME_SURGE_MULTIPLIER    = 1.5
 
 # --- SIGNAL CONFLUENCE ---
-MIN_SIGNALS_REQUIRED        = 3   # Full BUY: ≥3 of 7 signals
-MIN_SIGNALS_WATCHLIST       = 1   # Reduced conviction: ≥1 of 7 signals
+MIN_SIGNALS_REQUIRED        = 4   # Full BUY: ≥4 of 7 signals (raised from 3 — today's 3/7 entries all lost)
+MIN_SIGNALS_WATCHLIST       = 2   # Watchlist: ≥2 of 7 signals
+
+# --- ENTRY QUALITY GATES ---
+MIN_VOL_RATIO               = 1.0   # Volume must be ≥ 1× average (below avg = no momentum, e.g. Adani 0.59×, LT 0.22×)
+MIN_RETURN_PER_HOUR         = 0.5   # Expected return must be ≥ 0.5% per remaining hour (time-to-target gate)
 
 # --- BACKTEST CONFIG ---
 BACKTEST_PERIOD_YEARS   = 2
