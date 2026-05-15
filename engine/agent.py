@@ -7,7 +7,7 @@ Usage:
     python -m engine.agent --backtest   # backtest only
     python -m engine.agent --fresh      # force fresh backtest
 """
-import argparse, json, os, sys
+import argparse, json, os, sys, urllib.parse, urllib.request
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from datetime import datetime, date
@@ -15,6 +15,46 @@ import pytz
 
 from engine.recommendation import generate_recommendation, generate_midday_recommendation, generate_continuous_recommendation
 from engine.config import CAPITAL, CALLS_PATH, REPORTS_DIR, IST
+
+
+def send_whatsapp_alert(rec: dict):
+    """Send WhatsApp message via CallMeBot when a BUY signal fires."""
+    phone  = os.environ.get("CALLMEBOT_PHONE")
+    apikey = os.environ.get("CALLMEBOT_APIKEY")
+    if not phone or not apikey:
+        print("  [WhatsApp] CALLMEBOT_PHONE / CALLMEBOT_APIKEY not set — skipping alert")
+        return
+
+    calls = rec.get("calls", [rec])
+    r     = calls[0]
+    now   = datetime.now(IST).strftime("%I:%M %p IST")
+
+    lines = [
+        f"📈 *TRADE SIGNAL — {r['ticker']}*",
+        f"⏰ Triggered: {now}",
+        f"",
+        f"Entry:     ₹{r['entry']:,.2f}",
+        f"Target:    +{r['expected_return']:.1f}%  (₹{r['target']:,.2f})",
+        f"Stop Loss: {((r['stop_loss']/r['entry'])-1)*100:.1f}%  (₹{r['stop_loss']:,.2f})",
+        f"R:R Ratio: {r['reward_risk']:.1f}:1",
+        f"",
+        f"Signals:   {r['signals_aligned']}/7",
+        f"BT Win Rate: {r['bt_win_rate']:.0%}",
+        f"Conviction: {rec.get('conviction', '—')}",
+        f"",
+        f"⚠ Educational only. Not financial advice.",
+    ]
+    msg = "\n".join(lines)
+
+    url = (
+        "https://api.callmebot.com/whatsapp.php?"
+        + urllib.parse.urlencode({"phone": phone, "text": msg, "apikey": apikey})
+    )
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            print(f"  [WhatsApp] Alert sent → {resp.status}")
+    except Exception as e:
+        print(f"  [WhatsApp] Failed to send alert: {e}")
 
 
 def print_recommendation(rec: dict):
@@ -249,9 +289,10 @@ if __name__ == "__main__":
     if args.continuous:
         rec = generate_continuous_recommendation()
         print_recommendation(rec)
-        # Only save if an actual BUY signal was generated
+        # Only save and alert if an actual BUY signal was generated
         if rec.get("action") == "BUY":
             save_to_calls_log(rec)
+            send_whatsapp_alert(rec)
         else:
             print(f"  [{rec.get('reason','')}]")
     elif args.midday:

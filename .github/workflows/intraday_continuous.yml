@@ -32,6 +32,8 @@ jobs:
           PYTHONUNBUFFERED: '1'
           TZ: 'Asia/Kolkata'
           GITHUB_STEP_SUMMARY: ${{ github.step_summary }}
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
 
       - name: Commit signal if new call generated
         run: |
