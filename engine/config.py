@@ -81,8 +81,13 @@ MIN_SIGNALS_REQUIRED        = 4   # Full BUY: ≥4 of 7 signals (raised from 3 �
 MIN_SIGNALS_WATCHLIST       = 2   # Watchlist: ≥2 of 7 signals
 
 # --- ENTRY QUALITY GATES ---
-MIN_VOL_RATIO               = 1.0   # Volume must be ≥ 1× average (below avg = no momentum, e.g. Adani 0.59×, LT 0.22×)
-MIN_RETURN_PER_HOUR         = 0.5   # Expected return must be ≥ 0.5% per remaining hour (time-to-target gate)
+MIN_VOL_RATIO               = 1.0   # Volume must be ≥ 1× average (below avg = no momentum)
+MIN_RETURN_PER_HOUR         = 0.5   # Expected return must be ≥ 0.5% per remaining hour
+MIN_ORB_RANGE_PCT           = 1.0   # ORB range (high-low / price) must be ≥ 1% — tight range = target unreachable
+                                    # Sun Pharma today: 0.91% range, needed 2.23% target — impossible
+NIFTY_TREND_TICKER          = "^NSEI"     # Nifty 50 index for market regime filter
+MIN_NIFTY_TREND_PCT         = 0.3   # Nifty must be up ≥ 0.3% from open for BUY signals
+                                    # Rangebound market = individual stocks won't trend
 
 # --- BACKTEST CONFIG ---
 BACKTEST_PERIOD_YEARS   = 2

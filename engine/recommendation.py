@@ -25,7 +25,8 @@ from engine.config import (
     MIN_REWARD_RISK, MIN_RETURN_PCT, CAPITAL, KILL_SWITCH_TIME,
     ONLY_BUY, IST, CALLS_PATH, SCORE_WEIGHTS, ORB_BACKTEST_PATH,
     MORNING_ENTRY_BAR, MIDDAY_ENTRY_BAR, SCORE_TIME_START, SCORE_TIME_END,
-    MIN_VOL_RATIO, MIN_RETURN_PER_HOUR,
+    MIN_VOL_RATIO, MIN_RETURN_PER_HOUR, MIN_ORB_RANGE_PCT,
+    NIFTY_TREND_TICKER, MIN_NIFTY_TREND_PCT,
 )
 from engine.data_fetcher import fetch_historical, fetch_intraday, get_previous_day_levels
 from engine.signals import compute_signals
@@ -60,11 +61,40 @@ def _normalize(values: list, cap: float = None) -> list:
     return [(v - lo) / (hi - lo) for v in arr]
 
 
+_nifty_trend_cache = {}   # {date: pct_from_open} — fetched once per day
+
+def _get_nifty_trend_pct() -> float:
+    """
+    Returns Nifty's % move from today's open to current bar.
+    Cached per day — only one yfinance call per day.
+    Positive = market trending up, negative = down/rangebound.
+    """
+    from engine.data_fetcher import fetch_intraday
+    today = str(__import__('datetime').date.today())
+    if today in _nifty_trend_cache:
+        return _nifty_trend_cache[today]
+    try:
+        df = fetch_intraday(NIFTY_TREND_TICKER, interval="5m", period="1d")
+        if df.empty:
+            _nifty_trend_cache[today] = 0.0
+            return 0.0
+        open_price  = float(df["Close"].iloc[0])
+        curr_price  = float(df["Close"].iloc[-1])
+        pct = round((curr_price - open_price) / open_price * 100, 3)
+        _nifty_trend_cache[today] = pct
+        return pct
+    except Exception:
+        _nifty_trend_cache[today] = 0.0
+        return 0.0
+
+
 def _passes_quality_gates(sig: dict, now_ist: datetime = None) -> tuple:
     """
-    Hard entry quality gates based on today's losses:
-    1. Volume >= 1× average (low vol = no momentum)
-    2. Expected return achievable in time remaining (≥ MIN_RETURN_PER_HOUR per hour left)
+    Hard entry quality gates — all must pass for a BUY signal:
+    1. Volume >= 1× average (low vol = no institutional momentum)
+    2. ORB range >= 1% of price (tight range = target mathematically unreachable)
+    3. Nifty trending up >= 0.3% from open (rangebound market = no individual stock momentum)
+    4. Expected return achievable in time remaining (>= 0.5%/hr left)
     Returns (passes: bool, reason: str)
     """
     if now_ist is None:
@@ -75,11 +105,25 @@ def _passes_quality_gates(sig: dict, now_ist: datetime = None) -> tuple:
     if vol < MIN_VOL_RATIO:
         return False, f"Low volume ({vol:.2f}× avg < {MIN_VOL_RATIO}×)"
 
-    # Gate 2: Time-to-target feasibility
-    # Hours remaining until 2 PM cutoff
-    cutoff_min = 14 * 60  # 2:00 PM
+    # Gate 2: ORB range width — tight range = target unreachable
+    # (Sun Pharma today: 0.91% range, needed 2.23% target — stock only moved 0.36%)
+    orb_high = sig.get("orb_high") or 0
+    orb_low  = sig.get("orb_low") or 0
+    price    = sig.get("current_price") or 1
+    if orb_high > 0 and orb_low > 0:
+        orb_range_pct = (orb_high - orb_low) / price * 100
+        if orb_range_pct < MIN_ORB_RANGE_PCT:
+            return False, f"ORB too tight ({orb_range_pct:.2f}% < {MIN_ORB_RANGE_PCT}% — target unreachable)"
+
+    # Gate 3: Nifty market regime — skip BUY on rangebound/down days
+    nifty_pct = _get_nifty_trend_pct()
+    if nifty_pct < MIN_NIFTY_TREND_PCT:
+        return False, f"Nifty rangebound/down ({nifty_pct:+.2f}% from open, need +{MIN_NIFTY_TREND_PCT}%)"
+
+    # Gate 4: Time-to-target feasibility
+    cutoff_min = 14 * 60
     now_min    = now_ist.hour * 60 + now_ist.minute
-    hours_left = max((cutoff_min - now_min) / 60, 0.25)  # min 15 min
+    hours_left = max((cutoff_min - now_min) / 60, 0.25)
     exp_return = sig.get("expected_return", 0) or 0
     required   = MIN_RETURN_PER_HOUR * hours_left
     if exp_return < required:
