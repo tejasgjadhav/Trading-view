@@ -2,117 +2,135 @@
 
 **Live dashboard → [tejasgjadhav.github.io/Trade-Intraday](https://tejasgjadhav.github.io/Trade-Intraday/)**
 
-Fully automated intraday trading signal system for NSE India. No manual intervention. No overnight positions.
+---
+
+## What is this?
+
+This is a **fully automated stock-picking robot** for the Indian stock market (NSE).
+
+Every weekday, it wakes up on its own, watches 95 Indian stocks throughout the trading day, and tells you exactly **which stock to buy, at what price, and where to exit** — before the market closes. No human involved. No overnight risk.
+
+Think of it like a very disciplined assistant that watches the market all day so you don't have to.
 
 ---
 
-## How it works — in plain English
+## What problem does it solve?
 
-**Every weekday, this is what happens automatically:**
+Most people who try intraday trading (buying and selling stocks within the same day) lose money because:
 
-**9:15 AM – 2:00 PM IST — Continuous scan**
-The engine scans 95 NSE stocks every 5 minutes. The moment a stock clears all entry criteria, a BUY signal is published to the dashboard. No fixed signal time — it fires exactly when the setup is ready. No new signals after 2:00 PM (not enough time left to hit target).
+- They act on emotion, not logic
+- They enter too late or too early
+- They don't know when to cut losses
+- They hold positions overnight hoping for recovery
 
-**3:20 PM IST — Force close**
-All open positions are closed. The engine records whether the target was hit, stop was triggered, or neither. No positions held overnight — ever.
-
-**Every Sunday at 6:30 PM IST — Weekly review**
-The engine replays last week's market data bar by bar, checks which signals would have been issued, simulates outcomes, and analyses which of the 7 signals predicted winners vs losers. From the second Sunday onward, it automatically nudges the model weights toward what actually worked.
-
-**Every Sunday at 6:00 PM IST — Backtest refresh**
-Reruns 2-year backtest on all stocks and refreshes the eligible list for the coming week.
+This engine removes all of that. Every decision is rule-based, automatic, and consistent — no panic, no greed, no guesswork.
 
 ---
 
-## What triggers a signal
+## What does it actually do, day by day?
 
-A signal is only issued when **at least 4 of these 7 conditions** are true at the same time:
+**Morning (9:15 AM – 2:00 PM)**
+The robot wakes up and checks 95 stocks every 5 minutes. It's looking for stocks that show strong signs of going up. The moment it finds one that passes all its checks, it posts a BUY signal on the dashboard with the exact buy price, profit target, and stop-loss.
 
-| # | Condition | What it means |
-|---|-----------|---------------|
-| 1 | Price above previous day's close | Momentum continuing from yesterday |
-| 2 | ORB breakout | Price broke above the 9:15–9:45 AM opening range |
-| 3 | Above VWAP | Price is above the volume-weighted average price |
-| 4 | RSI momentum | RSI is in a healthy range — not overextended |
-| 5 | EMA trend up | Short-term moving average above long-term |
-| 6 | Volume spike | Today's volume is 1.5× above normal |
-| 7 | Near key level | Price is near yesterday's high or low |
+**Afternoon (3:20 PM)**
+Whether the trade hit its target or not — the robot closes everything and records the result. No positions are ever held overnight. You go to sleep knowing you're flat.
 
----
+**Every Sunday (6:00 PM)**
+The robot reruns 2 years of historical data to decide which stocks are worth watching next week.
 
-## Hard entry quality gates
-
-Even if 4/7 signals fire, the signal is **blocked** if any of these fail:
-
-| Gate | Threshold | Why |
-|------|-----------|-----|
-| Volume | ≥ 1× average | Low volume = no institutional participation |
-| ORB range width | ≥ 1% of price | Tight range = target mathematically unreachable |
-| Nifty trend | ≥ +0.3% from open | Rangebound market = individual stocks won't trend |
-| Time-to-target | ≥ 0.5% per hour left | Late entries with small targets = not worth the risk |
+**Every Sunday (6:30 PM)**
+The robot replays last week's market, checks which of its own rules actually predicted winning trades, and quietly adjusts its own weights — making itself slightly smarter each week.
 
 ---
 
-## How the best stock is picked
+## How does it decide to buy?
 
-All qualifying stocks are ranked by a **composite score (0–100)** built from 6 factors. Scores decay linearly throughout the day — a stock scoring 80 at 9:45 AM beats the same stock scoring 80 at 1:00 PM.
+It checks **7 conditions** before buying. At least 4 must be true simultaneously:
 
-| Factor | Weight | What it measures |
-|--------|--------|-----------------|
-| Max single-day return (backtest) | 25% | Best intraday gain this stock ever produced |
-| Backtest win rate | 20% | How often it was profitable historically |
-| Sharpe ratio | 15% | Consistency of returns, risk-adjusted |
-| Live signal confidence | 20% | How many of the 7 signals are aligned today |
-| Expected return today | 10% | Entry to target % |
-| Volume confirmation | 10% | How strong today's volume is vs average |
+| # | Plain English |
+|---|--------------|
+| 1 | The stock is already above yesterday's closing price |
+| 2 | The stock just broke above the price range from the first 30 minutes of trading |
+| 3 | The stock is trading above where the average buyer paid today |
+| 4 | The stock's momentum indicator is in a healthy zone — not overheated |
+| 5 | The short-term price trend is pointing upward |
+| 6 | More shares are being traded than usual today (1.5× normal) |
+| 7 | The stock is near a price level that proved important yesterday |
 
-The **top 2 highest-scoring stocks from different sectors** get the BUY call. Two signals from the same sector (e.g. two banks or two IT stocks) are blocked — only the better one is taken.
-
-Weights are automatically updated every Sunday based on what actually worked the previous week.
-
----
-
-## Entry and exit rules
-
-| Rule | Detail |
-|------|--------|
-| Entry | Price at the bar when criteria are met (anchored to 9:45 AM for morning signals) |
-| Target | Entry + 1× 14-day ATR (Average True Range) — adapts to each stock's actual volatility, minimum 2:1 R:R |
-| Stop loss | Just below the 9:15–9:45 AM opening range low |
-| Signal cutoff | No new signals after 2:00 PM IST |
-| Force close | All positions closed at 3:20 PM IST regardless of P&L |
-| Overnight | Never. All positions intraday only. |
+If fewer than 4 of these are true, no signal. The robot waits.
 
 ---
 
-## Automation schedule
+## What are the hard safety checks?
 
-| Time | What runs |
-|------|-----------|
-| 9:15 AM – 2:00 PM IST, every 5 min (Mon–Fri) | Live scan → publishes signal when all gates pass |
-| 3:20 PM IST (Mon–Fri) | Force closes all positions, records P&L |
-| 6:00 PM IST (Sunday) | Reruns 2-year backtest, refreshes stock rankings |
-| 6:30 PM IST (Sunday) | Replays last week bar by bar, analyses signal performance, updates model weights |
+Even if 4 conditions are met, the robot will still say NO if any of these fail:
 
----
+| Check | What it means in plain English |
+|-------|-------------------------------|
+| Volume check | Not enough people trading this stock today — we skip it |
+| Price range check | The morning price range was too tight — mathematically can't make enough profit |
+| Market mood check | The overall Nifty index is flat or falling — individual stocks won't move either |
+| Time check | It's too late in the day — not enough time left to reach the profit target |
 
-## Self-learning model
-
-Every Sunday the engine:
-1. Replays the entire previous week using actual market data
-2. Identifies which signals (ORB, VWAP, RSI etc.) were active in winning trades
-3. Identifies which were active in losing trades
-4. Nudges the composite score weights toward signals that predicted winners
-5. Maximum weight change is ±1.5% per week — gradual, not reactive
-
-This means the model improves from real trade outcomes over time, not just historical backtests.
+These four filters catch the "technically looks good but practically won't work" situations.
 
 ---
 
-## Stock universe
+## How does it pick which stock to buy?
 
-95 NSE-listed stocks across IT, Banking, NBFC, Energy, Infra, Metals, Auto, FMCG, Pharma, Retail, Telecom, and Real Estate. Signals are picked from different sectors each day to avoid concentration risk. Full list in [`engine/config.py`](engine/config.py).
+When multiple stocks pass all the checks, each one gets a score from 0 to 100 based on:
+
+- How well this stock has performed historically
+- How consistent its past returns were
+- How confident the signals are today
+- How much profit we expect vs the risk
+- How strong today's trading volume is
+
+**The score also adjusts for time of day** — a stock signaling at 9:45 AM gets full marks, the same stock at 1:00 PM gets a lower score because there's less time to reach the target.
+
+The robot picks the **top 2 stocks from different industries** (e.g. one bank stock + one IT stock). It never picks two stocks from the same sector — that would be putting all eggs in one basket.
 
 ---
 
-> ⚠️ Educational and research purposes only. Not financial advice. Past performance does not guarantee future results.
+## What happens after the buy signal?
+
+| Decision | How it's made |
+|----------|--------------|
+| Buy price | The price when all conditions are met |
+| Profit target | Based on how much this stock typically moves in a day (not a fixed %) |
+| Stop loss | Just below the morning's lowest price — protecting against a big fall |
+| Latest signal time | 2:00 PM — no new signals after this |
+| Force exit | 3:20 PM — everything is closed, profit or loss locked in |
+
+---
+
+## Does it learn from mistakes?
+
+Yes. Every Sunday it looks at last week's trades and asks:
+
+*"Which of my 7 conditions were active in the winning trades? Which were active in the losing ones?"*
+
+It then quietly adjusts how much weight it gives each condition — giving more importance to the ones that predicted winners and less to the ones that led to losses. The adjustment is small (max 1.5% per week) so it learns gradually, not reactively.
+
+Over time, the model gets calibrated to real market behavior — not just backtested guesses.
+
+---
+
+## What does the dashboard show?
+
+The live dashboard at [tejasgjadhav.github.io/Trade-Intraday](https://tejasgjadhav.github.io/Trade-Intraday/) shows:
+
+- Today's BUY signals with company name, entry price, target price, stop loss, and expected profit %
+- A live scan log — every 5-minute check, what was found, and why
+- Last week's performance review with signal-by-signal analysis
+- Historical trade log with outcomes
+
+---
+
+## The goal in one sentence
+
+> Buy the right Indian stock at the right time every trading day, exit before market close, never hold overnight, and get a little smarter every week — all without any human involvement.
+
+---
+
+> ⚠️ For educational and research purposes only. Not financial advice. Past performance does not guarantee future results.
