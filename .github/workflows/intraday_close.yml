@@ -1,9 +1,10 @@
-name: "3:35 PM — Record EOD P&L"
+name: "3:15 PM — Record EOD P&L"
 
 on:
   schedule:
-    # 3:20 PM IST = 09:50 UTC  (Mon–Fri)
-    - cron: '50 9 * * 1-5'
+    # 3:15 PM IST = 09:45 UTC  (Mon–Fri)
+    # AVCM force-close fires at 3:10 PM — this runs 5 min later to capture final prices
+    - cron: '45 9 * * 1-5'
   workflow_dispatch:
 
 permissions:

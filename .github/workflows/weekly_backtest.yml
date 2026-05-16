@@ -1,4 +1,4 @@
-name: Weekly Backtest (Every Sunday 6 PM IST)
+name: "AVCM Weekly Backtest (Every Sunday 6 PM IST)"
 
 on:
   schedule:
@@ -60,7 +60,7 @@ jobs:
                           stop   = round(or_low * 0.998, 2)
                           risk   = entry - stop
                           if risk <= 0: break
-                          target = round(entry + risk * 2.0, 2)
+                          target = round(entry + risk * 2.5, 2)   # AVCM: 2.5:1 R:R
                           break
 
                   if not entry: continue
