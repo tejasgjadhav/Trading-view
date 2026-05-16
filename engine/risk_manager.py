@@ -1,6 +1,6 @@
 """
-Risk Manager — Kelly sizing, daily loss limits.
-Core principle: position SIZING is the strategy.
+Risk Manager — AVCM uses VIX-adjusted half-Kelly sizing (in recommendation.py).
+This module kept for backward compat and legacy fallback sizing.
 """
 import math
 from engine.config import (

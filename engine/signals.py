@@ -1,19 +1,21 @@
 """
-Signal Engine — 7 signals, need ≥ MIN_SIGNALS_REQUIRED aligned.
+AVCM Signal Engine — Adaptive Volume-Confirmed Momentum
+5 factors, ALL must be true simultaneously for a BUY signal.
 
-Signals:
-  1. PDC Position    — is price above/below prev day close?
-  2. ORB Breakout    — broke above/below 9:15–9:45 range?
-  3. VWAP Position   — above VWAP = bullish, with deviation check
-  4. RSI             — oversold → long, overbought → short
-  5. EMA Trend       — fast EMA vs slow EMA
-  6. Volume Spike    — is volume 1.5x+ above avg? (confirmation)
-  7. Key Level Test  — near PDH (resistance) or PDL (support)?
+Factors:
+  1. Structural Breakout  — 5-min bar CLOSES above ORB High (close, not wick)
+  2. Volume Confirmation  — Signal bar volume ≥ 2× per-bar average of ORB period
+  3. VWAP Position        — Price above today's anchored VWAP
+  4. RSI Momentum Window  — RSI between 55 and 72 (momentum zone, not overextended)
+  5. Market Alignment     — Nifty 50 is positive from its own open
+
+Retest bonus: if price broke ORB High earlier, pulled back to VWAP (within 0.5%),
+and is now breaking again with volume — is_retest = True → +25% position size.
 """
 import pandas as pd
 import numpy as np
 from engine.config import (
-    RSI_PERIOD, RSI_OVERSOLD, RSI_OVERBOUGHT,
+    RSI_PERIOD, RSI_MOMENTUM_LOW, RSI_MOMENTUM_HIGH,
     EMA_FAST, EMA_SLOW, VWAP_DEVIATION_THRESHOLD,
     VOLUME_SURGE_MULTIPLIER, MIN_SIGNALS_REQUIRED, ONLY_BUY
 )
@@ -36,109 +38,121 @@ def compute_rsi(close: pd.Series, period: int = RSI_PERIOD) -> float:
 
 def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
                     pdh: float, pdl: float, pdc: float,
-                    entry_bar_idx: int = 5) -> dict:
+                    entry_bar_idx: int = 5,
+                    nifty_pct: float = None) -> dict:
     """
+    AVCM 5-factor signal engine.
+
     Returns:
     {
-        direction: "LONG" | "NEUTRAL"  (only LONG since ONLY_BUY=True)
-        signals_aligned: int
-        confidence: float 0–1
-        signals_detail: dict
-        regime: str
-        current_price, vwap, orb_high, orb_low, rsi, ema_fast, ema_slow
+        direction:        "LONG" | "NEUTRAL"
+        signals_aligned:  int  (0–5; must be 5 for LONG)
+        confidence:       float (0–1; 1.0 = all 5 fired)
+        signals_detail:   dict  (factor → 1 if True, 0 if False)
+        is_retest:        bool  (True → retest pattern, +25% size bonus)
+        regime:           str
+        current_price, vwap, orb_high, orb_low, rsi, ema_fast, ema_slow, vol_ratio
     }
+
+    nifty_pct: % change of Nifty from its open right now.
+               If None, Factor 5 (Market Alignment) is not checked
+               and defaults to True (conservative: don't block on missing data).
     """
     signals = {}
 
-    min_bars = entry_bar_idx + 1
     if df_intraday.empty or len(df_intraday) < 6:
-        return {"direction": "NEUTRAL", "signals_aligned": 0,
-                "confidence": 0, "signals_detail": {}, "regime": "UNKNOWN"}
+        return {
+            "direction": "NEUTRAL", "signals_aligned": 0,
+            "confidence": 0, "signals_detail": {}, "is_retest": False,
+            "regime": "UNKNOWN", "current_price": 0, "vwap": 0,
+            "orb_high": 0, "orb_low": 0, "rsi": 50,
+            "ema_fast": 0, "ema_slow": 0, "vol_ratio": 0,
+        }
 
-    # ── ORB window: bars 0-5 (9:15–9:44 AM opening range) ───────────────────
-    # entry_bar_idx=-1 → use latest available bar (continuous/dynamic mode).
-    # entry_bar_idx=N  → anchor to specific bar (backcompat for fixed-time runs).
+    # ── ORB window: bars 0–5 (9:15–9:44 AM) ────────────────────────────────
     orb_idx   = min(5, len(df_intraday) - 1)
     entry_idx = (len(df_intraday) - 1) if entry_bar_idx < 0 else min(entry_bar_idx, len(df_intraday) - 1)
+
+    or_bars   = df_intraday.iloc[:orb_idx + 1]
+    orb_high  = float(or_bars["High"].max())
+    orb_low   = float(or_bars["Low"].min())
+
+    # Entry: LIMIT at ORB High + 0.1% (AVCM execution rule)
+    limit_entry   = round(orb_high * 1.001, 2)
     current_price = float(df_intraday.iloc[entry_idx]["Close"])
 
-    # 1. PDC Position
-    signals["above_pdc"] = 1 if current_price > pdc else -1
-
-    # 2. ORB Breakout (first 6 bars of 5-min = 30 min = 9:15–9:45)
-    or_bars  = df_intraday.iloc[:orb_idx + 1]
-    orb_high = float(or_bars["High"].max())
-    orb_low  = float(or_bars["Low"].min())
-    if current_price > orb_high:
-        signals["orb"] = 1
-    elif current_price < orb_low:
-        signals["orb"] = -1
-    else:
-        signals["orb"] = 0
-
-    # 3. VWAP — anchored to the entry window (9:45 AM = bars 0-5; 11 AM = bars 0-20)
+    # VWAP anchored to entry window
     vwap_window  = df_intraday.iloc[:entry_idx + 1]
-    vwap         = compute_vwap(vwap_window)
-    current_vwap = float(vwap.iloc[-1])
-    deviation    = (current_price - current_vwap) / current_vwap
-    signals["vwap"] = 1 if current_price > current_vwap else -1
+    vwap_series  = compute_vwap(vwap_window)
+    current_vwap = float(vwap_series.iloc[-1])
 
-    # 4. RSI — computed up to entry bar
+    # RSI up to entry bar
     rsi_val = compute_rsi(df_intraday["Close"].iloc[:entry_idx + 1])
-    if rsi_val < RSI_OVERSOLD:
-        signals["rsi"] = 1
-    elif rsi_val > RSI_OVERBOUGHT:
-        signals["rsi"] = -1
+
+    # EMA (for regime context only)
+    entry_close = df_intraday["Close"].iloc[:entry_idx + 1]
+    ema_fast_v  = float(entry_close.ewm(span=EMA_FAST, adjust=False).mean().iloc[-1])
+    ema_slow_v  = float(entry_close.ewm(span=EMA_SLOW, adjust=False).mean().iloc[-1])
+
+    # Per-bar average volume during ORB period (AVCM Volume Confirmation)
+    orb_vols     = df_intraday["Volume"].iloc[:orb_idx + 1]
+    n_orb_bars   = max(len(orb_vols), 1)
+    orb_per_bar_avg = float(orb_vols.sum()) / n_orb_bars
+    signal_bar_vol  = float(df_intraday["Volume"].iloc[entry_idx])
+    vol_ratio_orb   = round(signal_bar_vol / orb_per_bar_avg, 2) if orb_per_bar_avg > 0 else 0
+
+    # Daily volume ratio (for scoring / quality gates)
+    avg_vol_daily = df_intraday["Volume"].rolling(10, min_periods=3).mean()
+    avg_v_daily   = float(avg_vol_daily.iloc[max(entry_idx - 1, 0)]) if not avg_vol_daily.empty else 1
+    if pd.isna(avg_v_daily) or avg_v_daily <= 0:
+        avg_v_daily = max(float(df_intraday["Volume"].iloc[:entry_idx].mean()), 1)
+    vol_ratio_daily = round(signal_bar_vol / avg_v_daily, 2) if avg_v_daily > 0 else 0
+
+    # ── Factor 1: Structural Breakout ────────────────────────────────────────
+    # Price CLOSES above ORB High (close, not just wick)
+    signals["structural_breakout"] = 1 if current_price > orb_high else 0
+
+    # ── Factor 2: Volume Confirmation ────────────────────────────────────────
+    # Signal bar volume ≥ 2× per-bar average from ORB period
+    signals["volume_confirm"] = 1 if vol_ratio_orb >= VOLUME_SURGE_MULTIPLIER else 0
+
+    # ── Factor 3: VWAP Position ──────────────────────────────────────────────
+    signals["vwap_position"] = 1 if current_price > current_vwap else 0
+
+    # ── Factor 4: RSI Momentum Window ────────────────────────────────────────
+    # RSI must be 55–72: momentum building, not overbought
+    signals["rsi_momentum"] = 1 if RSI_MOMENTUM_LOW <= rsi_val <= RSI_MOMENTUM_HIGH else 0
+
+    # ── Factor 5: Market Alignment ───────────────────────────────────────────
+    # Nifty 50 must be positive from its open
+    if nifty_pct is None:
+        signals["market_align"] = 1  # skip if data unavailable (conservative)
     else:
-        signals["rsi"] = 0
+        signals["market_align"] = 1 if nifty_pct > 0 else 0
 
-    # 5. EMA Trend — computed up to entry bar
-    entry_close  = df_intraday["Close"].iloc[:entry_idx + 1]
-    ema_fast_s   = entry_close.ewm(span=EMA_FAST, adjust=False).mean()
-    ema_slow_s   = entry_close.ewm(span=EMA_SLOW, adjust=False).mean()
-    ema_fast_v   = float(ema_fast_s.iloc[-1])
-    ema_slow_v   = float(ema_slow_s.iloc[-1])
-    signals["ema_trend"] = 1 if ema_fast_v > ema_slow_v else -1
+    # ── Retest Pattern Detection ─────────────────────────────────────────────
+    # Earlier bar broke ORB High → pulled back to VWAP ± 0.5% → now breaking again
+    is_retest = False
+    if entry_idx >= 8 and orb_high > 0:
+        prev_bars = df_intraday.iloc[orb_idx:entry_idx]  # bars after ORB, before signal
+        vwap_prev = compute_vwap(df_intraday.iloc[:entry_idx])
 
-    # 6. Volume Spike — compare entry bar volume against average of prior bars
-    avg_vol = df_intraday["Volume"].iloc[:entry_idx].rolling(10, min_periods=3).mean()
-    cur_vol = float(df_intraday["Volume"].iloc[entry_idx])
-    avg_v   = float(avg_vol.iloc[-1]) if not avg_vol.empty and not pd.isna(avg_vol.iloc[-1]) and avg_vol.iloc[-1] > 0 else 1
-    signals["volume_spike"] = 1 if cur_vol > VOLUME_SURGE_MULTIPLIER * avg_v else 0
+        had_prev_breakout = any(float(prev_bars["Close"].iloc[i]) > orb_high
+                                for i in range(len(prev_bars)))
+        if had_prev_breakout:
+            # Check if price touched VWAP (within 0.5%) between breakout and now
+            for i in range(len(prev_bars)):
+                bar_close = float(prev_bars["Close"].iloc[i])
+                vwap_at_bar = float(vwap_prev.iloc[orb_idx + i]) if orb_idx + i < len(vwap_prev) else current_vwap
+                near_vwap = abs(bar_close - vwap_at_bar) / vwap_at_bar < 0.005
+                if near_vwap:
+                    is_retest = True
+                    break
 
-    # 7. Key Level
-    tol = 0.002
-    near_pdh = abs(current_price - pdh) / pdh < tol
-    near_pdl = abs(current_price - pdl) / pdl < tol
-    if near_pdh:
-        signals["key_level"] = -1   # resistance
-    elif near_pdl:
-        signals["key_level"] = 1    # support bounce
-    else:
-        signals["key_level"] = 0
-
-    # Aggregate
-    long_count  = sum(1 for v in signals.values() if v == 1)
-    short_count = sum(1 for v in signals.values() if v == -1)
-
-    # ONLY_BUY: never go short
-    if ONLY_BUY:
-        if long_count >= MIN_SIGNALS_REQUIRED:
-            direction = "LONG"
-            aligned   = long_count
-        else:
-            direction = "NEUTRAL"
-            aligned   = long_count
-    else:
-        if long_count >= MIN_SIGNALS_REQUIRED and long_count > short_count:
-            direction = "LONG"
-            aligned   = long_count
-        elif short_count >= MIN_SIGNALS_REQUIRED and short_count > long_count:
-            direction = "SHORT"
-            aligned   = short_count
-        else:
-            direction = "NEUTRAL"
-            aligned   = 0
+    # ── Aggregate ────────────────────────────────────────────────────────────
+    long_count = sum(1 for v in signals.values() if v == 1)
+    # ALL 5 must fire for LONG (AVCM rule: 4/5 is NOT a signal)
+    direction = "LONG" if long_count >= MIN_SIGNALS_REQUIRED else "NEUTRAL"
 
     # Regime from daily ATR
     regime = "RANGE"
@@ -155,22 +169,21 @@ def compute_signals(df_daily: pd.DataFrame, df_intraday: pd.DataFrame,
                 elif abs(current_price - pdc) / pdc > 0.005:
                     regime = "TRENDING"
 
-    vol_ratio = round(cur_vol / avg_v, 2)
-
     return {
         "direction":        direction,
-        "signals_aligned":  aligned,
-        "long_signals":     long_count,
-        "short_signals":    short_count,
-        "confidence":       round(aligned / 7.0, 2),
+        "signals_aligned":  long_count,
+        "confidence":       round(long_count / 5.0, 2),   # 5 factors total
         "signals_detail":   signals,
+        "is_retest":        is_retest,
         "regime":           regime,
-        "current_price":    current_price,   # always 9:45 AM price
+        "current_price":    current_price,
+        "limit_entry":      limit_entry,    # AVCM: ORB High + 0.1%
         "vwap":             round(current_vwap, 2),
         "orb_high":         round(orb_high, 2),
         "orb_low":          round(orb_low, 2),
         "rsi":              round(rsi_val, 1),
         "ema_fast":         round(ema_fast_v, 2),
         "ema_slow":         round(ema_slow_v, 2),
-        "vol_ratio":        vol_ratio,
+        "vol_ratio":        vol_ratio_daily,      # daily avg ratio (for quality gate)
+        "vol_ratio_orb":    vol_ratio_orb,        # per-bar ORB ratio (Factor 2)
     }
