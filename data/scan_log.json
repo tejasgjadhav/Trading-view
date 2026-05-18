@@ -50,6 +50,17 @@
       "signals": [],
       "time_mult": null,
       "conviction": ""
+    },
+    {
+      "date": "2026-05-18",
+      "time": "01:18 PM IST",
+      "action": "NO_TRADE",
+      "reason": "Regime: Nifty (23626) below 20d EMA (23855) \u2014 bearish regime",
+      "tickers": [],
+      "scores": [],
+      "signals": [],
+      "time_mult": null,
+      "conviction": ""
     }
   ]
 }
